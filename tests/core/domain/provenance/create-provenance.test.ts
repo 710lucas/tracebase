@@ -1,0 +1,74 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  createProvenance,
+  InvalidProvenanceError,
+} from "../../../../src/core/domain/provenance/index.ts";
+
+const MINIMUM = { tool: "some-tool", run: "run-1" };
+
+test("accepts only tool and run (tool-agnostic minimum)", () => {
+  const provenance = createProvenance(MINIMUM);
+  assert.equal(provenance.tool, "some-tool");
+  assert.equal(provenance.run, "run-1");
+  assert.equal(provenance.recordRef, undefined);
+  assert.equal(provenance.module, undefined);
+  assert.equal(provenance.confidence, undefined);
+  assert.equal(provenance.observedAt, undefined);
+});
+
+test("keeps the optional fields when given", () => {
+  const provenance = createProvenance({
+    tool: "spiderfoot",
+    run: "scan1",
+    recordRef: "hashA",
+    module: "sfp_dnsresolve",
+    confidence: 80,
+    observedAt: 1760000000000,
+  });
+  assert.equal(provenance.recordRef, "hashA");
+  assert.equal(provenance.module, "sfp_dnsresolve");
+  assert.equal(provenance.confidence, 80);
+  assert.equal(provenance.observedAt, 1760000000000);
+});
+
+test("rejects a blank tool or run and says which one", () => {
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, tool: " " }),
+    new InvalidProvenanceError("tool must not be blank"),
+  );
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, run: "" }),
+    new InvalidProvenanceError("run must not be blank"),
+  );
+});
+
+test("rejects a blank recordRef when present", () => {
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, recordRef: "  " }),
+    new InvalidProvenanceError("recordRef must not be blank when present"),
+  );
+});
+
+test("accepts the confidence boundaries 0 and 100", () => {
+  assert.equal(createProvenance({ ...MINIMUM, confidence: 0 }).confidence, 0);
+  assert.equal(createProvenance({ ...MINIMUM, confidence: 100 }).confidence, 100);
+});
+
+test("rejects a confidence outside 0-100 or not a number", () => {
+  assert.throws(() => createProvenance({ ...MINIMUM, confidence: 101 }), InvalidProvenanceError);
+  assert.throws(() => createProvenance({ ...MINIMUM, confidence: -1 }), InvalidProvenanceError);
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, confidence: Number.NaN }),
+    InvalidProvenanceError,
+  );
+});
+
+test("rejects an observedAt that is negative or not an integer", () => {
+  assert.throws(() => createProvenance({ ...MINIMUM, observedAt: -5 }), InvalidProvenanceError);
+  assert.throws(() => createProvenance({ ...MINIMUM, observedAt: 1.5 }), InvalidProvenanceError);
+});
+
+test("the created provenance cannot be mutated", () => {
+  assert.ok(Object.isFrozen(createProvenance(MINIMUM)));
+});
