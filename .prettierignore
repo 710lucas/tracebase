@@ -1,0 +1,5 @@
+node_modules
+coverage
+package-lock.json
+# Docs are hand-written prose and tables; reformatting them adds noise, not value.
+*.md

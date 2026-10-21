@@ -1,0 +1,26 @@
+{
+  "name": "osint-grafo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TCC core: knowledge graph built from OSINT tools",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "check:architecture": "depcruise src tests --config .dependency-cruiser.cjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"tests/**/*.test.ts\"",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:architecture && npm run coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "dependency-cruiser": "^18.7.0",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.0"
+  }
+}
