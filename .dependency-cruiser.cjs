@@ -80,7 +80,12 @@ module.exports = {
       severity: "warn",
       from: {
         orphan: true,
-        pathNot: ["(^|/)\\.[^/]+\\.(c|m)?js$", "\\.d\\.ts$", "\\.test\\.ts$", "^src/index\\.ts$"],
+        pathNot: [
+          "(^|/)\\.[^/]+\\.(c|m)?js$",
+          "\\.d\\.ts$",
+          "\\.test\\.ts$",
+          "^src/(index|main)\\.ts$",
+        ],
       },
       to: {},
     },

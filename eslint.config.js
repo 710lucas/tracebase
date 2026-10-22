@@ -37,6 +37,12 @@ export default tseslint.config(
     languageOptions: { globals: { module: "writable" } },
   },
   {
+    // The entry point and the adapters talk to the outside world, the terminal included. The core
+    // keeps the rule: it never prints.
+    files: ["src/main.ts", "src/adapters/**/*.ts"],
+    rules: { "no-console": "off" },
+  },
+  {
     // Tests may use non-null assertions on fixtures; asserting on `undefined` is the point there.
     files: ["tests/**/*.ts"],
     rules: { "@typescript-eslint/no-non-null-assertion": "off" },
