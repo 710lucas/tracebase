@@ -6,9 +6,10 @@ import {
   createRelation,
   InvalidRelationError,
   type Relation,
+  type RelationDTO,
 } from "../../../../src/core/domain/relation/index.ts";
 
-function fields(overrides: Partial<Relation> = {}): Relation {
+function fields(overrides: Partial<RelationDTO> = {}): RelationDTO {
   return {
     source: createEntity("DOMAIN_NAME", "example.com"),
     target: createEntity("IP_ADDRESS", "93.184.216.34"),
@@ -76,4 +77,10 @@ test("changing the caller's list afterwards does not change the relation", () =>
   const relation = createRelation(fields({ viaRecordRefs: path }));
   path.push("evt-2");
   assert.deepEqual(relation.viaRecordRefs, ["evt-1"]);
+});
+
+test("an object literal is not a Relation for the compiler", () => {
+  // @ts-expect-error a literal has no brand, so it is not a Relation
+  const loose: Relation = { ...fields() };
+  assert.equal(loose.source.value, "example.com");
 });

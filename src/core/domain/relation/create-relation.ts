@@ -1,6 +1,7 @@
 import { normalizeText } from "../text/index.ts";
 import { InvalidRelationError } from "./invalid-relation-error.ts";
 import type { Relation } from "./relation.ts";
+import type { RelationDTO } from "./relation-dto.ts";
 
 // The only supported way to build a Relation. Guarantees:
 //   - `type`, when present, is normalized (NFC + trim) and not blank;
@@ -15,7 +16,7 @@ import type { Relation } from "./relation.ts";
 //
 // EXPAND: reject a relation whose source and target are the same entity, if self-links turn out
 // to be noise in real scans (not decided).
-export function createRelation(fields: Relation): Relation {
+export function createRelation(fields: RelationDTO): Relation {
   const normalizedType = fields.type === undefined ? undefined : normalizeText(fields.type);
   if (normalizedType === "") {
     throw new InvalidRelationError("type must not be blank when present");
@@ -23,11 +24,12 @@ export function createRelation(fields: Relation): Relation {
   if (fields.viaRecordRefs?.some((ref) => ref.trim() === "")) {
     throw new InvalidRelationError("viaRecordRefs must not contain blank entries");
   }
+  // The only cast of the brand: this is where the invariants were just checked.
   return Object.freeze({
     ...fields,
     ...(normalizedType !== undefined && { type: normalizedType }),
     ...(fields.viaRecordRefs !== undefined && {
       viaRecordRefs: Object.freeze([...fields.viaRecordRefs]),
     }),
-  });
+  }) as Relation;
 }

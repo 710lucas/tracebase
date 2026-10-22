@@ -12,7 +12,10 @@ import type { Provenance } from "../provenance/index.ts";
 // is the `target`; its closest entity ancestor (via `source_event_hash`) is the `source`;
 // that event's hash, module, confidence and scan become the `provenance`.
 //
-// Build instances with `createRelation`, which enforces the invariants.
+// Build instances with `createRelation`, which enforces the invariants. The brand below makes the
+// compiler refuse a literal or a `RelationDTO` where a `Relation` is expected.
+declare const relationBrand: unique symbol;
+
 export interface Relation {
   readonly source: Entity;
   readonly target: Entity;
@@ -48,4 +51,6 @@ export interface Relation {
   // not say the address was found through that URL, because the URL becomes an attribute of
   // www.example.com and the link skips it. A tool with no records leaves the field out.
   readonly viaRecordRefs?: readonly string[];
+  // Exists only for the compiler; there is no such property at runtime.
+  readonly [relationBrand]: true;
 }
