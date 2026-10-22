@@ -1,5 +1,6 @@
 import { normalizeText } from "../text/index.ts";
 import type { Attribute } from "./attribute.ts";
+import type { AttributeDTO } from "./attribute-dto.ts";
 import { InvalidAttributeError } from "./invalid-attribute-error.ts";
 
 // The only supported way to build an Attribute. Guarantees that `name` is normalized (NFC +
@@ -12,7 +13,7 @@ import { InvalidAttributeError } from "./invalid-attribute-error.ts";
 //
 // EXPAND: normalize `value` too (it is free text from the tool); fold the case of `name` if two
 // tools turn out to spell the same attribute differently and we decide that is the core's job.
-export function createAttribute(fields: Attribute): Attribute {
+export function createAttribute(fields: AttributeDTO): Attribute {
   const normalizedName = normalizeText(fields.name);
   if (normalizedName === "") {
     throw new InvalidAttributeError("name must not be blank");
@@ -20,5 +21,6 @@ export function createAttribute(fields: Attribute): Attribute {
   if (fields.value.trim() === "") {
     throw new InvalidAttributeError("value must not be blank");
   }
-  return Object.freeze({ ...fields, name: normalizedName });
+  // The only cast of the brand: this is where the invariants were just checked.
+  return Object.freeze({ ...fields, name: normalizedName }) as Attribute;
 }

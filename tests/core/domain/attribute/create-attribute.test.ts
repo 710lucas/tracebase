@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   createAttribute,
   InvalidAttributeError,
+  type Attribute,
 } from "../../../../src/core/domain/attribute/index.ts";
 import { createEntity } from "../../../../src/core/domain/entity/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
@@ -76,4 +77,10 @@ test("a later value is added next to the earlier one, nothing is overwritten", (
   });
   assert.equal(inPatos.value, "Patos");
   assert.equal(inJoaoPessoa.value, "João Pessoa");
+});
+
+test("an object literal is not an Attribute for the compiler", () => {
+  // @ts-expect-error a literal has no brand, so it is not an Attribute
+  const loose: Attribute = { ...fields() };
+  assert.equal(loose.name, "WEBSERVER_BANNER");
 });

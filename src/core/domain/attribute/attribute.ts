@@ -27,14 +27,19 @@ import type { Provenance } from "../provenance/index.ts";
 // ("WEBSERVER_BANNER", "GEOINFO"...) becomes `name`; its `data` becomes `value`; its module,
 // confidence and scan become the `provenance`, and its hash the `recordRef`.
 //
-// Build instances with `createAttribute`, which enforces the invariants.
+// Build instances with `createAttribute`, which enforces the invariants. The brand below makes the
+// compiler refuse a literal or an `AttributeDTO` where an `Attribute` is expected.
 //
 // EXPAND: the PII flag (with the raw-data work); a way to point an attribute at another
 // attribute (SpiderFoot's `sobre`, for descriptor chains X -> A -> B); typed values if a
 // real need appears (today everything is text).
+declare const attributeBrand: unique symbol;
+
 export interface Attribute {
   readonly entity: Entity;
   readonly name: string;
   readonly value: string;
   readonly provenance: Provenance;
+  // Exists only for the compiler; there is no such property at runtime.
+  readonly [attributeBrand]: true;
 }
