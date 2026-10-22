@@ -20,12 +20,15 @@
 //   observedAt  -> the event's `generated`, which SpiderFoot stores in SECONDS with a fraction
 //                  (e.g. 1786049414.250); the adapter sends it in milliseconds (1786049414250)
 //
-// Build instances with `createProvenance`, which enforces the invariants.
+// Build instances with `createProvenance`, which enforces the invariants. The brand below makes the
+// compiler refuse a literal or a `ProvenanceDTO` where a `Provenance` is expected.
 //
 // EXPAND: `recordedAt` (when OUR system ingested it, set by the core at ingestion, distinct from
 // `observedAt`) and the tool version, when the graph-state / reprocessing work needs them. When
 // the storage exists, define the key that makes an import idempotent (re-sending the same import
 // must not duplicate edges); it can be built from tool, run, module, source, target and type.
+declare const provenanceBrand: unique symbol;
+
 export interface Provenance {
   readonly tool: string;
   readonly run: string;
@@ -46,4 +49,7 @@ export interface Provenance {
   // When the tool made the observation, in epoch milliseconds (UTC). Gives the graph a
   // date-based history: the same fact seen again in a later run has a later `observedAt`.
   readonly observedAt?: number;
+
+  // Exists only for the compiler; there is no such property at runtime.
+  readonly [provenanceBrand]: true;
 }

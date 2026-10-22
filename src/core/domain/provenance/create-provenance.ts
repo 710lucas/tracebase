@@ -1,5 +1,6 @@
 import { InvalidProvenanceError } from "./invalid-provenance-error.ts";
 import type { Provenance } from "./provenance.ts";
+import type { ProvenanceDTO } from "./provenance-dto.ts";
 
 // Upper and lower bound of the confidence scale (named so there are no magic numbers).
 const MIN_CONFIDENCE = 0;
@@ -17,7 +18,7 @@ const MAX_CONFIDENCE = 100;
 // provenance it cannot trust.
 //
 // EXPAND: validate `module` is not blank when present, if real data shows that can happen.
-export function createProvenance(fields: Provenance): Provenance {
+export function createProvenance(fields: ProvenanceDTO): Provenance {
   if (fields.tool.trim() === "") {
     throw new InvalidProvenanceError("tool must not be blank");
   }
@@ -43,5 +44,6 @@ export function createProvenance(fields: Provenance): Provenance {
       "observedAt must be a non-negative integer (epoch milliseconds)",
     );
   }
-  return Object.freeze({ ...fields });
+  // The only cast of the brand: this is where the invariants were just checked.
+  return Object.freeze({ ...fields }) as Provenance;
 }

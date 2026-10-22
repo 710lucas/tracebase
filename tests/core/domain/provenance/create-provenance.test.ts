@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   createProvenance,
   InvalidProvenanceError,
+  type Provenance,
 } from "../../../../src/core/domain/provenance/index.ts";
 
 const MINIMUM = { tool: "some-tool", run: "run-1" };
@@ -71,4 +72,10 @@ test("rejects an observedAt that is negative or not an integer", () => {
 
 test("the created provenance cannot be mutated", () => {
   assert.ok(Object.isFrozen(createProvenance(MINIMUM)));
+});
+
+test("an object literal is not a Provenance for the compiler", () => {
+  // @ts-expect-error a literal has no brand, so it is not a Provenance
+  const loose: Provenance = { tool: "some-tool", run: "run-1" };
+  assert.equal(loose.tool, "some-tool");
 });
