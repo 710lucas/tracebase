@@ -38,4 +38,4 @@ export const importPayloadSchema = z.strictObject({
   attributes: z.array(attributeSchema).default([]),
 });
 
-export type ImportPayload = z.infer<typeof importPayloadSchema>;
+export type ImportPayloadDTO = z.infer<typeof importPayloadSchema>;

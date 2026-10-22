@@ -6,7 +6,7 @@ import { InvalidAttributeError } from "../../../core/domain/attribute/index.ts";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import { InvalidProvenanceError } from "../../../core/domain/provenance/index.ts";
 import { InvalidRelationError } from "../../../core/domain/relation/index.ts";
-import type { ImportPayload } from "./import-payload-schema.ts";
+import type { ImportPayloadDTO } from "./import-payload-schema.ts";
 import * as service from "./service.ts";
 import { VALIDATED_PAYLOAD_KEY } from "./middlewares/validate-import-request.ts";
 
@@ -26,7 +26,7 @@ const DOMAIN_VALIDATION_ERRORS = [
 // `validateImportRequest` middleware has already rejected a body with the wrong shape and left the
 // payload in `response.locals`.
 export function importBatch(_request: Request, response: Response): void {
-  const payload = response.locals[VALIDATED_PAYLOAD_KEY] as ImportPayload;
+  const payload = response.locals[VALIDATED_PAYLOAD_KEY] as ImportPayloadDTO;
   try {
     const result = service.importBatch(payload);
     response.status(constants.HTTP_STATUS_ACCEPTED).json({ status: "accepted", ...result });

@@ -2,7 +2,7 @@ import { createAttribute, type Attribute } from "../../../core/domain/attribute/
 import { createEntity } from "../../../core/domain/entity/index.ts";
 import { createProvenance } from "../../../core/domain/provenance/index.ts";
 import { createRelation, type Relation } from "../../../core/domain/relation/index.ts";
-import type { ImportPayload } from "./import-payload-schema.ts";
+import type { ImportPayloadDTO } from "./import-payload-schema.ts";
 
 export interface ImportedDomainObjects {
   relations: Relation[];
@@ -14,7 +14,7 @@ export interface ImportedDomainObjects {
 //
 // The `create*` functions check the content and throw the domain's own errors when something is
 // wrong; this function lets them through for the controller to answer.
-export function importPayloadToDomain(payload: ImportPayload): ImportedDomainObjects {
+export function importPayloadToDomain(payload: ImportPayloadDTO): ImportedDomainObjects {
   // Built once up front, so a bad `source` is rejected even when the batch has no items.
   const batchProvenance = createProvenance(payload.source);
   const buildItemProvenance = (itemProvenance: object | undefined) =>

@@ -6,7 +6,7 @@ import type { ZodError } from "zod";
 import { importPayloadSchema } from "../import-payload-schema.ts";
 
 // Where this middleware leaves its result for the controller: `response.locals`, Express's place for
-// data passed along a request. The value stored there is an `ImportPayload`.
+// data passed along a request. The value stored there is an `ImportPayloadDTO`.
 export const VALIDATED_PAYLOAD_KEY = "validatedPayload";
 
 // Middleware of the import route: decides whether the body has the right shape, in order: is it JSON,

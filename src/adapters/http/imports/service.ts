@@ -1,4 +1,4 @@
-import type { ImportPayload } from "./import-payload-schema.ts";
+import type { ImportPayloadDTO } from "./import-payload-schema.ts";
 import { importPayloadToDomain } from "./import-payload-to-domain.ts";
 
 export interface ImportResult {
@@ -16,7 +16,7 @@ export interface ImportResult {
 //
 // EXPAND: hand the objects to the repository. Cut the log of very large batches (a SpiderFoot scan can
 // be thousands of items) once real data shows the size.
-export function importBatch(payload: ImportPayload): ImportResult {
+export function importBatch(payload: ImportPayloadDTO): ImportResult {
   const { relations, attributes } = importPayloadToDomain(payload);
   console.log(
     `import accepted: ${relations.length} relations, ${attributes.length} attributes`,
