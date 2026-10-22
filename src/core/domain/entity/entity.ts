@@ -17,8 +17,12 @@
 //   DESCRIPTOR / SUBENTITY events -> NOT entities: they become attributes of the entity above them
 //
 // Build instances with `createEntity`, which enforces the invariants. Instances are immutable.
+// The brand below makes the compiler refuse an object literal where an `Entity` is expected, so every
+// `Entity` in the system went through `createEntity`.
 //
 // EXPAND: the PII flag goes with the raw-data work.
+declare const entityBrand: unique symbol;
+
 export interface Entity {
   // The kind of thing: "DOMAIN_NAME", "IP_ADDRESS", "EMAILADDR"...
   //
@@ -36,4 +40,6 @@ export interface Entity {
   // should *declare* a mapping and the core only applies it. Decide when the 2nd tool arrives.
   readonly type: string;
   readonly value: string;
+  // Exists only for the compiler; there is no such property at runtime.
+  readonly [entityBrand]: true;
 }

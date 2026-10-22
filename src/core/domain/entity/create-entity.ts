@@ -30,5 +30,6 @@ export function createEntity(type: string, value: string): Entity {
   if (normalizedValue === "") {
     throw new InvalidEntityError("value must not be blank");
   }
-  return Object.freeze({ type: normalizedType, value: normalizedValue });
+  // The only cast of the brand: this is where the invariants were just checked.
+  return Object.freeze({ type: normalizedType, value: normalizedValue }) as Entity;
 }
