@@ -7,7 +7,7 @@ import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import { InvalidProvenanceError } from "../../../core/domain/provenance/index.ts";
 import { InvalidRelationError } from "../../../core/domain/relation/index.ts";
 import type { ImportPayloadDTO } from "./import-payload-schema.ts";
-import * as service from "./service.ts";
+import type { ImportsService } from "./service.ts";
 import { VALIDATED_PAYLOAD_KEY } from "./middlewares/validate-import-request.ts";
 
 // The errors the domain raises when a value is not acceptable (blank, out of range). They are the
@@ -25,18 +25,22 @@ const DOMAIN_VALIDATION_ERRORS = [
 // `importBatch`: what happens when a tool sends one import batch. By the time it runs, the
 // `validateImportRequest` middleware has already rejected a body with the wrong shape and left the
 // payload in `response.locals`.
-export function importBatch(_request: Request, response: Response): void {
-  const payload = response.locals[VALIDATED_PAYLOAD_KEY] as ImportPayloadDTO;
-  try {
-    const result = service.importBatch(payload);
-    response.status(constants.HTTP_STATUS_ACCEPTED).json({ status: "accepted", ...result });
-  } catch (error) {
-    if (isDomainValidationError(error)) {
-      response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
-      return;
-    }
-    throw error;
-  }
+export function createImportsController(service: ImportsService) {
+  return {
+    importBatch: async (_request: Request, response: Response): Promise<void> => {
+      const payload = response.locals[VALIDATED_PAYLOAD_KEY] as ImportPayloadDTO;
+      try {
+        const result = await service.importBatch(payload);
+        response.status(constants.HTTP_STATUS_ACCEPTED).json({ status: "accepted", ...result });
+      } catch (error) {
+        if (isDomainValidationError(error)) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        throw error;
+      }
+    },
+  };
 }
 
 function isDomainValidationError(error: unknown): error is Error {
