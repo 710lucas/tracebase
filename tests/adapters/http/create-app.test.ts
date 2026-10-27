@@ -66,6 +66,7 @@ test("an accepted payload is saved in the repository", async () => {
 
 test("a failure of the repository is a 500, not a lost request", async () => {
   const failingRepository = {
+    ...createInMemoryGraphRepository(),
     save: async () => {
       throw new Error("storage is down");
     },

@@ -54,6 +54,76 @@ test("saving an empty batch changes nothing", async () => {
   assert.deepEqual(repository.attributes, []);
 });
 
+test("finds an entity by the relations where it is the source or the target", async () => {
+  const repository = createInMemoryGraphRepository();
+  const otherRelation = createRelation({ source: address, target: domain, provenance });
+  const unrelated = createRelation({
+    source: createEntity("DOMAIN_NAME", "other.org"),
+    target: createEntity("IP_ADDRESS", "10.0.0.1"),
+    provenance,
+  });
+  await repository.save({ relations: [relation, otherRelation, unrelated], attributes: [] });
+
+  const findings = await repository.findEntity(address);
+
+  assert.deepEqual(findings?.relations, [relation, otherRelation]);
+  assert.deepEqual(findings?.attributes, []);
+});
+
+test("finds the attributes of an entity and echoes the entity", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [relation], attributes: [attribute] });
+
+  const findings = await repository.findEntity(address);
+
+  assert.equal(findings?.entity, address);
+  assert.deepEqual(findings?.attributes, [attribute]);
+});
+
+test("an entity mentioned only by an attribute is found", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [], attributes: [attribute] });
+
+  const findings = await repository.findEntity(address);
+
+  assert.deepEqual(findings?.relations, []);
+  assert.deepEqual(findings?.attributes, [attribute]);
+});
+
+test("keeps the same fact seen by two runs as two findings", async () => {
+  const repository = createInMemoryGraphRepository();
+  const secondRun = createProvenance({ tool: "spiderfoot", run: "scan-2" });
+  const sameLinkAgain = createRelation({ source: domain, target: address, provenance: secondRun });
+  await repository.save({ relations: [relation], attributes: [] });
+  await repository.save({ relations: [sameLinkAgain], attributes: [] });
+
+  const findings = await repository.findEntity(domain);
+
+  assert.deepEqual(
+    findings?.relations.map((found) => found.provenance.run),
+    ["scan-1", "scan-2"],
+  );
+});
+
+test("answers null for an entity nothing mentions", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [relation], attributes: [attribute] });
+
+  assert.equal(await repository.findEntity(createEntity("IP_ADDRESS", "10.9.9.9")), null);
+});
+
+test("an empty repository answers null", async () => {
+  assert.equal(await createInMemoryGraphRepository().findEntity(address), null);
+});
+
+test("type and value are compared exactly, so case makes a different entity", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [relation], attributes: [] });
+
+  assert.equal(await repository.findEntity(createEntity("DOMAIN_NAME", "Example.com")), null);
+  assert.equal(await repository.findEntity(createEntity("domain_name", "example.com")), null);
+});
+
 test("saves a very large batch", async () => {
   const repository = createInMemoryGraphRepository();
   const relations = Array.from({ length: 200_000 }, () => relation);

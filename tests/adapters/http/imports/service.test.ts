@@ -50,6 +50,7 @@ test("lets the domain error reach the caller and saves nothing when a value is r
 
 test("lets a failure of the repository reach the caller", async () => {
   const failingRepository = {
+    ...createInMemoryGraphRepository(),
     save: async () => {
       throw new Error("storage is down");
     },
