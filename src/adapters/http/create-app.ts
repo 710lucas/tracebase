@@ -1,10 +1,12 @@
 import express, { type Express } from "express";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
+import { createGraphRouter } from "./graph/router.ts";
 import { createImportsRouter } from "./imports/router.ts";
 import { notFoundHandler } from "./not-found-handler.ts";
 
 // Where each group of routes is mounted. Routers define their routes relative to this.
 const IMPORTS_MOUNT_PATH = "/imports";
+const GRAPH_MOUNT_PATH = "/graph";
 
 // What the application needs from the outside. Today only where to store the graph.
 export interface AppDependencies {
@@ -17,6 +19,9 @@ export interface AppDependencies {
 export function createApp({ graphRepository }: AppDependencies): Express {
   const app = express();
   app.use(IMPORTS_MOUNT_PATH, createImportsRouter(graphRepository));
+
+  app.use(GRAPH_MOUNT_PATH, createGraphRouter(graphRepository));
+
   app.use(notFoundHandler);
   return app;
 }
