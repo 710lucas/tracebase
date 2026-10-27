@@ -23,10 +23,9 @@
 // Build instances with `createProvenance`, which enforces the invariants. The brand below makes the
 // compiler refuse a literal or a `ProvenanceDTO` where a `Provenance` is expected.
 //
-// EXPAND: `recordedAt` (when OUR system ingested it, set by the core at ingestion, distinct from
-// `observedAt`) and the tool version, when the graph-state / reprocessing work needs them. When
-// the storage exists, define the key that makes an import idempotent (re-sending the same import
-// must not duplicate edges); it can be built from tool, run, module, source, target and type.
+// EXPAND: the tool version, when the graph-state / reprocessing work needs it. The key that makes an
+// import idempotent (re-sending the same import must not duplicate edges) is built by the Memgraph
+// adapter from tool, run, module, source, target and type.
 declare const provenanceBrand: unique symbol;
 
 export interface Provenance {
@@ -49,6 +48,12 @@ export interface Provenance {
   // When the tool made the observation, in epoch milliseconds (UTC). Gives the graph a
   // date-based history: the same fact seen again in a later run has a later `observedAt`.
   readonly observedAt?: number;
+
+  // When OUR system received the data, in epoch milliseconds (UTC). The imports service sets it when
+  // it receives the request, and a tool can never send it. Different from `observedAt`, which is the
+  // tool's own date: this one is the date of last resort, used to order observations when the tool
+  // sent no `observedAt`.
+  readonly recordedAt?: number;
 
   // Exists only for the compiler; there is no such property at runtime.
   readonly [provenanceBrand]: true;

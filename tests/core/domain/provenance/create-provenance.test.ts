@@ -16,6 +16,7 @@ test("accepts only tool and run (tool-agnostic minimum)", () => {
   assert.equal(provenance.module, undefined);
   assert.equal(provenance.confidence, undefined);
   assert.equal(provenance.observedAt, undefined);
+  assert.equal(provenance.recordedAt, undefined);
 });
 
 test("keeps the optional fields when given", () => {
@@ -68,6 +69,21 @@ test("rejects a confidence outside 0-100 or not a number", () => {
 test("rejects an observedAt that is negative or not an integer", () => {
   assert.throws(() => createProvenance({ ...MINIMUM, observedAt: -5 }), InvalidProvenanceError);
   assert.throws(() => createProvenance({ ...MINIMUM, observedAt: 1.5 }), InvalidProvenanceError);
+});
+
+test("keeps the recordedAt when given", () => {
+  assert.equal(
+    createProvenance({ ...MINIMUM, recordedAt: 1762387200000 }).recordedAt,
+    1762387200000,
+  );
+});
+
+test("rejects a recordedAt that is negative or not an integer", () => {
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, recordedAt: -5 }),
+    new InvalidProvenanceError("recordedAt must be a non-negative integer (epoch milliseconds)"),
+  );
+  assert.throws(() => createProvenance({ ...MINIMUM, recordedAt: 1.5 }), InvalidProvenanceError);
 });
 
 test("the created provenance cannot be mutated", () => {

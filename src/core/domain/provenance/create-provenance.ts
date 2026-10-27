@@ -10,7 +10,7 @@ const MAX_CONFIDENCE = 100;
 //   - `tool` and `run` are not blank;
 //   - `recordRef`, when present, is not blank (a blank reference points at nothing);
 //   - `confidence`, when present, is a number between 0 and 100;
-//   - `observedAt`, when present, is a non-negative integer (epoch milliseconds);
+//   - `observedAt` and `recordedAt`, when present, are non-negative integers (epoch milliseconds);
 //   - the result is immutable.
 //
 // SpiderFoot note: if the adapter gets a confidence outside 0-100 or an unusable `generated`,
@@ -44,6 +44,16 @@ export function createProvenance(fields: ProvenanceDTO): Provenance {
       "observedAt must be a non-negative integer (epoch milliseconds)",
     );
   }
+
+  if (
+    fields.recordedAt !== undefined &&
+    !(Number.isInteger(fields.recordedAt) && fields.recordedAt >= 0)
+  ) {
+    throw new InvalidProvenanceError(
+      "recordedAt must be a non-negative integer (epoch milliseconds)",
+    );
+  }
+
   // The only cast of the brand: this is where the invariants were just checked.
   return Object.freeze({ ...fields }) as Provenance;
 }

@@ -7,4 +7,5 @@ export interface ProvenanceDTO {
   module?: string;
   confidence?: number;
   observedAt?: number;
+  recordedAt?: number;
 }
