@@ -69,11 +69,25 @@ function queryFor(entity: { type: string; value: string }) {
   return `type=${encodeURIComponent(entity.type)}&value=${encodeURIComponent(entity.value)}`;
 }
 
+interface Findings {
+  relations: { provenance: Record<string, unknown> }[];
+  attributes: { provenance: Record<string, unknown> }[];
+}
+
+// The time of reception changes on every run, so the test checks that it is there and compares the rest.
+function withoutRecordedAt(findings: Findings): Findings {
+  for (const item of [...findings.relations, ...findings.attributes]) {
+    assert.equal(typeof item.provenance["recordedAt"], "number");
+    delete item.provenance["recordedAt"];
+  }
+  return findings;
+}
+
 test("answers 200 with the entity, its relations and its attributes, each with provenance", async () => {
   const response = await findEntity(queryFor(ipAddress));
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
+  assert.deepEqual(withoutRecordedAt(await response.json()), {
     entity: ipAddress,
     relations: [
       {

@@ -17,6 +17,35 @@ const validPayload = parsePayload({
   attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", value: "nginx/1.25" }],
 });
 
+test("stamps every item of a batch with the time the batch was received", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const repository = createInMemoryGraphRepository();
+  const clock = [1762387200000, 1762387260000];
+  const service = createImportsService(repository, () => clock.shift() as number);
+
+  await service.importBatch(validPayload);
+  await service.importBatch(validPayload);
+
+  assert.deepEqual(
+    repository.relations.map((relation) => relation.provenance.recordedAt),
+    [1762387200000, 1762387260000],
+  );
+  assert.deepEqual(
+    repository.attributes.map((attribute) => attribute.provenance.recordedAt),
+    [1762387200000, 1762387260000],
+  );
+});
+
+test("an empty batch still needs a usable clock reading", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const emptyBatch = parsePayload({ source: { tool: "spiderfoot", run: "scan-1" } });
+
+  await assert.rejects(
+    createImportsService(createInMemoryGraphRepository(), () => -1).importBatch(emptyBatch),
+    /recordedAt must be a non-negative integer/,
+  );
+});
+
 test("saves the relations and attributes of the batch and counts them", async (t) => {
   t.mock.method(console, "log", () => {});
   const repository = createInMemoryGraphRepository();

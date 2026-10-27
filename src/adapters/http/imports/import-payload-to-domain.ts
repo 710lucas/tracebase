@@ -10,13 +10,17 @@ export interface ImportedDomainObjects {
 }
 
 // Turns a payload that already has the right structure into domain objects. The batch `source`
-// (tool and run) is merged into every item's provenance, so a batch cannot contradict itself.
+// (tool and run) and `recordedAt` (when our system received the batch) are merged into every item's
+// provenance, so a batch cannot contradict itself and all its items share one `recordedAt`.
 //
 // The `create*` functions check the content and throw the domain's own errors when something is
 // wrong; this function lets them through for the controller to answer.
-export function importPayloadToDomain(payload: ImportPayloadDTO): ImportedDomainObjects {
+export function importPayloadToDomain(
+  payload: ImportPayloadDTO,
+  recordedAt: number,
+): ImportedDomainObjects {
   // Built once up front, so a bad `source` is rejected even when the batch has no items.
-  const batchProvenance = createProvenance(payload.source);
+  const batchProvenance = createProvenance({ ...payload.source, recordedAt });
   const buildItemProvenance = (itemProvenance: object | undefined) =>
     createProvenance({ ...batchProvenance, ...itemProvenance });
 

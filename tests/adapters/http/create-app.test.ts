@@ -64,6 +64,31 @@ test("an accepted payload is saved in the repository", async () => {
   assert.equal(repository.relations.at(-1)?.provenance.run, "saved-run");
 });
 
+test("an accepted payload is stamped with the time it was received", async () => {
+  const before = Date.now();
+
+  await postImportPayload({ ...validPayload, source: { tool: "spiderfoot", run: "stamped-run" } });
+
+  const recordedAt = repository.relations.at(-1)?.provenance.recordedAt as number;
+  assert.ok(recordedAt >= before && recordedAt <= Date.now());
+});
+
+test("a tool cannot send recordedAt: that time is ours", async () => {
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      {
+        entity: ipAddress,
+        name: "WEBSERVER_BANNER",
+        value: "nginx/1.25",
+        provenance: { recordedAt: 1 },
+      },
+    ],
+  });
+
+  assert.equal(response.status, 400);
+});
+
 test("a failure of the repository is a 500, not a lost request", async () => {
   const failingRepository = {
     ...createInMemoryGraphRepository(),
