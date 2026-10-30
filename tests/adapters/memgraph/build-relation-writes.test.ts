@@ -7,7 +7,6 @@ import { createProvenance, type ProvenanceDTO } from "../../../src/core/domain/p
 import { createRelation } from "../../../src/core/domain/relation/index.ts";
 
 interface Overrides {
-  sourceType?: string;
   targetValue?: string;
   type?: string;
   viaRecordRefs?: string[];
@@ -16,7 +15,7 @@ interface Overrides {
 
 function relationWith(overrides: Overrides = {}) {
   return createRelation({
-    source: createEntity(overrides.sourceType ?? "DOMAIN_NAME", "example.com"),
+    source: createEntity("DOMAIN_NAME", "example.com"),
     target: createEntity("IP_ADDRESS", overrides.targetValue ?? "93.184.216.34"),
     provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...overrides.provenance }),
     ...(overrides.type !== undefined && { type: overrides.type }),
@@ -28,14 +27,12 @@ test("writes nothing for a batch with no relations", () => {
   assert.deepEqual(buildRelationWrites([]), []);
 });
 
-test("writes the entities first, one query per type label, then the edges", () => {
+test("a relation with no type is written on a RELATED edge, found or created by its key", () => {
   const statements = buildRelationWrites([relationWith()]);
 
   assert.deepEqual(
     statements.map((statement) => statement.query),
     [
-      "UNWIND $rows AS row MERGE (n:Entity {type: row.type, value: row.value}) SET n:DOMAIN_NAME",
-      "UNWIND $rows AS row MERGE (n:Entity {type: row.type, value: row.value}) SET n:IP_ADDRESS",
       "UNWIND $rows AS row " +
         "MATCH (source:Entity {type: row.sourceType, value: row.sourceValue}) " +
         "MATCH (target:Entity {type: row.targetType, value: row.targetValue}) " +
@@ -45,45 +42,17 @@ test("writes the entities first, one query per type label, then the edges", () =
   );
 });
 
-test("sends an entity seen in several relations once", () => {
-  const statements = buildRelationWrites([
-    relationWith(),
-    relationWith({ targetValue: "10.0.0.1" }),
-  ]);
-
-  assert.deepEqual(statements[0]?.parameters, {
-    rows: [{ type: "DOMAIN_NAME", value: "example.com" }],
-  });
-  assert.deepEqual(statements[1]?.parameters, {
-    rows: [
-      { type: "IP_ADDRESS", value: "93.184.216.34" },
-      { type: "IP_ADDRESS", value: "10.0.0.1" },
-    ],
-  });
-});
-
-test("an entity type that cannot make a label is written with :Entity only", () => {
-  const statements = buildRelationWrites([relationWith({ sourceType: "---" })]);
-
-  assert.equal(
-    statements[0]?.query,
-    "UNWIND $rows AS row MERGE (n:Entity {type: row.type, value: row.value})",
-  );
-});
-
-test("writes one edge query per edge label", () => {
+test("writes one query per edge label", () => {
   const statements = buildRelationWrites([
     relationWith({ type: "resolves_to" }),
     relationWith({ type: "Resolves To", targetValue: "10.0.0.1" }),
     relationWith({ type: "owns", targetValue: "10.0.0.2" }),
   ]);
 
-  const edgeStatements = statements.filter((statement) => statement.query.includes("MATCH"));
-
-  assert.equal(edgeStatements.length, 2);
-  assert.match(edgeStatements[0]?.query ?? "", /\[edge:RESOLVES_TO \{key: row\.key\}\]/);
-  assert.match(edgeStatements[1]?.query ?? "", /\[edge:OWNS \{key: row\.key\}\]/);
-  assert.equal((edgeStatements[0]?.parameters["rows"] as unknown[]).length, 2);
+  assert.equal(statements.length, 2);
+  assert.match(statements[0]?.query ?? "", /\[edge:RESOLVES_TO \{key: row\.key\}\]/);
+  assert.match(statements[1]?.query ?? "", /\[edge:OWNS \{key: row\.key\}\]/);
+  assert.equal((statements[0]?.parameters["rows"] as unknown[]).length, 2);
 });
 
 test("an edge row carries the key, both ends and only the properties the tool sent", () => {
@@ -93,9 +62,9 @@ test("an edge row carries the key, both ends and only the properties the tool se
     provenance: { module: "sfp_dnsresolve", confidence: 90, recordedAt: 2000 },
   });
 
-  const edgeStatement = buildRelationWrites([relation]).at(-1);
+  const [statement] = buildRelationWrites([relation]);
 
-  assert.deepEqual(edgeStatement?.parameters, {
+  assert.deepEqual(statement?.parameters, {
     rows: [
       {
         key: relationKey(relation),
@@ -117,15 +86,13 @@ test("an edge row carries the key, both ends and only the properties the tool se
   });
 });
 
-test("a text trying to break out of the query never reaches it", () => {
+test("a relation type trying to break out of the query never reaches it", () => {
   const hostile = "x) DETACH DELETE n //";
 
-  const queries = buildRelationWrites([relationWith({ type: hostile, sourceType: hostile })]).map(
-    (statement) => statement.query,
-  );
+  const [statement] = buildRelationWrites([relationWith({ type: hostile })]);
 
   // Only the normalized label is written (`X_DETACH_DELETE_N`): the original text, with its `)` and
-  // `//`, never appears in a query.
-  assert.ok(queries.some((query) => query.includes(":X_DETACH_DELETE_N")));
-  assert.ok(queries.every((query) => !query.includes(hostile) && !query.includes("//")));
+  // `//`, travels as a parameter.
+  assert.ok(statement?.query.includes(":X_DETACH_DELETE_N"));
+  assert.ok(!statement?.query.includes(hostile) && !statement?.query.includes("//"));
 });

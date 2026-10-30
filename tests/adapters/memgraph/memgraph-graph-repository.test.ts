@@ -151,20 +151,159 @@ test(
   },
 );
 
+function attributeWith(
+  value: string,
+  provenance: Partial<ProvenanceDTO> = {},
+  name = "banner",
+  entityValue = "__test__93.184.216.34",
+) {
+  return createAttribute({
+    entity: createEntity("IP_ADDRESS", entityValue),
+    name,
+    value,
+    provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...provenance }),
+  });
+}
+
+async function readAttributes(entityValue = "__test__93.184.216.34") {
+  const rows = await (connection as MemgraphConnection).run(
+    "MATCH (n:Entity {value: $value}) RETURN labels(n) AS labels, n.attributes AS attributes",
+    { value: entityValue },
+  );
+
+  return rows[0];
+}
+
 test(
-  "refuses a batch with attributes until they can be stored",
+  "stores an attribute as the current record in the attributes map of its entity",
   { skip: skipWithoutMemgraph },
   async () => {
-    const attribute = createAttribute({
-      entity: createEntity("IP_ADDRESS", "__test__93.184.216.34"),
-      name: "banner",
-      value: "nginx",
-      provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
+    const attribute = attributeWith("nginx", {
+      module: "sfp_portscan_tcp",
+      confidence: 80,
+      recordedAt: 2000,
     });
 
+    await (await repository()).save({ relations: [], attributes: [attribute] });
+
+    const row = await readAttributes();
+
+    // An attribute on an entity no relation mentions still creates the entity, with its type label.
+    assert.deepEqual((row?.["labels"] as string[]).toSorted(), ["Entity", "IP_ADDRESS"]);
+    assert.deepEqual(row?.["attributes"], {
+      banner: {
+        value: "nginx",
+        tool: "spiderfoot",
+        run: "scan-1",
+        module: "sfp_portscan_tcp",
+        confidence: 80,
+        recordedAt: 2000,
+        key: (row?.["attributes"] as { banner: { key: string } }).banner.key,
+      },
+    });
+  },
+);
+
+test(
+  "keeps one record per attribute name, even in the same batch",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    await (
+      await repository()
+    ).save({
+      relations: [],
+      attributes: [attributeWith("nginx"), attributeWith("Linux", {}, "os with spaces")],
+    });
+
+    const row = await readAttributes();
+    const attributes = row?.["attributes"] as Record<string, { value: string }>;
+
+    assert.deepEqual(
+      Object.entries(attributes)
+        .map(([name, record]) => [name, record.value])
+        .toSorted(),
+      [
+        ["banner", "nginx"],
+        ["os with spaces", "Linux"],
+      ],
+    );
+  },
+);
+
+test(
+  "keeps the records of the other attributes when one is added later",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({ relations: [], attributes: [attributeWith("nginx")] });
+    await graph.save({ relations: [], attributes: [attributeWith("Linux", {}, "os")] });
+
+    const row = await readAttributes();
+
+    assert.deepEqual(Object.keys(row?.["attributes"] as object).toSorted(), ["banner", "os"]);
+  },
+);
+
+test("saving the same attribute twice changes nothing", { skip: skipWithoutMemgraph }, async () => {
+  const graph = await repository();
+  const batch = { relations: [], attributes: [attributeWith("nginx", { observedAt: 1000 })] };
+
+  await graph.save(batch);
+  const afterFirst = await readAttributes();
+  await graph.save(batch);
+
+  assert.deepEqual(await readAttributes(), afterFirst);
+});
+
+test(
+  "the same value seen again later only moves updatedAt, and keeps the first provenance",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-1", observedAt: 1000 })],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-2", observedAt: 5000 })],
+    });
+
+    const row = await readAttributes();
+    const record = (row?.["attributes"] as Record<string, Record<string, unknown>>)["banner"];
+
+    assert.equal(record?.["run"], "scan-1");
+    assert.equal(record?.["observedAt"], 1000);
+    assert.equal(record?.["updatedAt"], 5000);
+  },
+);
+
+test(
+  "a different value is refused and nothing of the import is stored",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    await graph.save({ relations: [], attributes: [attributeWith("nginx")] });
+
     await assert.rejects(
-      (await repository()).save({ relations: [], attributes: [attribute] }),
-      /storing attributes in Memgraph is not implemented yet/,
+      graph.save({
+        relations: [relationWith()],
+        attributes: [attributeWith("apache", { run: "scan-2" })],
+      }),
+      /already has a different value/,
+    );
+
+    const rows = await (connection as MemgraphConnection).run(
+      "MATCH (n:Entity) WHERE n.value STARTS WITH '__test__' RETURN count(n) AS nodes",
+    );
+    const row = await readAttributes();
+
+    assert.deepEqual(rows, [{ nodes: 1 }]);
+    assert.equal(
+      (row?.["attributes"] as Record<string, { value: string }>)["banner"]?.value,
+      "nginx",
     );
   },
 );
