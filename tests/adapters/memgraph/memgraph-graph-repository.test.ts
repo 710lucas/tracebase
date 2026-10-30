@@ -427,9 +427,137 @@ test(
   },
 );
 
-test("says reading is not implemented yet", { skip: skipWithoutMemgraph }, async () => {
-  await assert.rejects(
-    (await repository()).findEntity(createEntity("IP_ADDRESS", "__test__1.1.1.1")),
-    /reading an entity from Memgraph is not implemented yet/,
-  );
+const target = createEntity("IP_ADDRESS", "__test__93.184.216.34");
+const source = createEntity("DOMAIN_NAME", "__test__example.com");
+
+function byValue<T extends { value: string }>(items: readonly T[]) {
+  return items.toSorted((a, b) => a.value.localeCompare(b.value));
+}
+
+test(
+  "finds nothing for an entity no relation or attribute mentions",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    await graph.save({ relations: [relationWith()], attributes: [] });
+
+    assert.equal(await graph.findEntity(createEntity("IP_ADDRESS", "__test__1.1.1.1")), null);
+  },
+);
+
+test(
+  "finds a relation from both of its ends, exactly as it was saved",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const relation = createRelation({
+      source,
+      target,
+      provenance: createProvenance({
+        tool: "spiderfoot",
+        run: "scan-1",
+        module: "sfp_dnsresolve",
+        confidence: 90,
+        recordRef: "hash-1",
+        observedAt: 1000,
+        recordedAt: 2000,
+      }),
+      type: "resolves-to",
+      viaRecordRefs: ["hash-via"],
+    });
+
+    await graph.save({ relations: [relation], attributes: [] });
+
+    assert.deepEqual(await graph.findEntity(source), {
+      entity: source,
+      relations: [relation],
+      attributes: [],
+    });
+    assert.deepEqual(await graph.findEntity(target), {
+      entity: target,
+      relations: [relation],
+      attributes: [],
+    });
+  },
+);
+
+test(
+  "finds a relation that has only the required fields",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const relation = relationWith();
+
+    await graph.save({ relations: [relation], attributes: [] });
+
+    assert.deepEqual((await graph.findEntity(source))?.relations, [relation]);
+  },
+);
+
+test(
+  "finds the same link seen by two runs as two relations",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const first = relationWith({ run: "scan-1" });
+    const second = relationWith({ run: "scan-2" });
+
+    await graph.save({ relations: [first, second], attributes: [] });
+
+    const found = await graph.findEntity(source);
+
+    assert.deepEqual(found?.relations.map((relation) => relation.provenance.run).toSorted(), [
+      "scan-1",
+      "scan-2",
+    ]);
+  },
+);
+
+test("finds a relation from an entity to itself once", { skip: skipWithoutMemgraph }, async () => {
+  const graph = await repository();
+  const relation = createRelation({
+    source,
+    target: source,
+    provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
+  });
+
+  await graph.save({ relations: [relation], attributes: [] });
+
+  assert.deepEqual((await graph.findEntity(source))?.relations, [relation]);
+});
+
+test(
+  "finds the current attributes and the replaced values, each with its provenance",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const nginx = attributeWith("nginx", { run: "scan-1", module: "sfp_a", observedAt: 1000 });
+    const apache = attributeWith("apache", { run: "scan-2", observedAt: 5000 });
+    const linux = attributeWith("Linux", { run: "scan-1" }, "os");
+
+    await graph.save({ relations: [], attributes: [nginx, apache, linux] });
+
+    const found = await graph.findEntity(target);
+
+    assert.deepEqual(byValue(found?.attributes ?? []), byValue([apache, linux, nginx]));
+  },
+);
+
+test("finds only what concerns the entity asked for", { skip: skipWithoutMemgraph }, async () => {
+  const graph = await repository();
+  const other = createEntity("IP_ADDRESS", "__test__10.0.0.1");
+  const relation = relationWith();
+  const unrelated = createRelation({
+    source: other,
+    target: createEntity("DOMAIN_NAME", "__test__other.org"),
+    provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
+  });
+
+  await graph.save({
+    relations: [relation, unrelated],
+    attributes: [attributeWith("nginx", {}, "banner", "__test__10.0.0.1")],
+  });
+
+  assert.deepEqual((await graph.findEntity(target))?.relations, [relation]);
+  assert.deepEqual((await graph.findEntity(target))?.attributes, []);
 });

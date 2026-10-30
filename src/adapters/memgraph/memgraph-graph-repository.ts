@@ -3,6 +3,7 @@ import { buildAttributeWrites } from "./build-attribute-writes.ts";
 import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
+import { findEntity } from "./find-entity.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { ensureMemgraphSchema } from "./memgraph-schema.ts";
 import { readStoredAttributes } from "./read-stored-attributes.ts";
@@ -14,8 +15,7 @@ import { readStoredAttributes } from "./read-stored-attributes.ts";
 // sender can send the same import again. What the attributes change is decided before the transaction
 // starts, from the records the database has at that moment; with one import at a time (v1) nothing
 // else can change them in between.
-//
-// EXPAND: reading an entity (slice 4d). Until then, reading says it is not there yet.
+
 export async function createMemgraphGraphRepository(
   connection: MemgraphConnection,
 ): Promise<GraphRepository> {
@@ -39,8 +39,6 @@ export async function createMemgraphGraphRepository(
       ]);
     },
 
-    findEntity: async () => {
-      throw new Error("reading an entity from Memgraph is not implemented yet");
-    },
+    findEntity: (entity) => findEntity(connection, entity),
   };
 }
