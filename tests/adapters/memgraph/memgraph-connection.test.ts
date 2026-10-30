@@ -66,6 +66,46 @@ test(
   },
 );
 
+// Like the repository tests, these only create entities whose value starts with `__test__`.
+async function countTransactionTestEntities(): Promise<unknown> {
+  const rows = await (connection as MemgraphConnection).run(
+    "MATCH (n:Entity) WHERE n.value STARTS WITH '__test__tx' RETURN count(n) AS count",
+  );
+
+  return rows[0]?.["count"];
+}
+
+test("runs several statements in one transaction", { skip: skipWithoutMemgraph }, async () => {
+  const memgraph = connection as MemgraphConnection;
+
+  await memgraph.runInTransaction([
+    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test__tx1" } },
+    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test__tx2" } },
+  ]);
+
+  assert.equal(await countTransactionTestEntities(), 2);
+
+  await memgraph.run("MATCH (n:Entity) WHERE n.value STARTS WITH '__test__tx' DETACH DELETE n");
+});
+
+test(
+  "keeps nothing of a transaction when one of its statements fails",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    await assert.rejects(
+      (connection as MemgraphConnection).runInTransaction([
+        {
+          query: "CREATE (:Entity {type: 'T', value: $value})",
+          parameters: { value: "__test__tx3" },
+        },
+        { query: "THIS IS NOT CYPHER", parameters: {} },
+      ]),
+    );
+
+    assert.equal(await countTransactionTestEntities(), 0);
+  },
+);
+
 test("says where it tried to connect when the database does not answer", async () => {
   await assert.rejects(
     connectToMemgraph({ url: "bolt://localhost:1" }),
