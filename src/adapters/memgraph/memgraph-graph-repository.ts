@@ -5,7 +5,7 @@ import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { ensureMemgraphSchema } from "./memgraph-schema.ts";
-import { readCurrentAttributes } from "./read-current-attributes.ts";
+import { readStoredAttributes } from "./read-stored-attributes.ts";
 
 // The `GraphRepository` that keeps the graph in Memgraph. It prepares the schema first, so a
 // repository that was returned is ready to use.
@@ -15,8 +15,7 @@ import { readCurrentAttributes } from "./read-current-attributes.ts";
 // starts, from the records the database has at that moment; with one import at a time (v1) nothing
 // else can change them in between.
 //
-// EXPAND: the history of superseded attribute values (slice 4c-2) and reading an entity (slice 4d).
-// Until then, an attribute with a different value is refused, and reading says it is not there yet.
+// EXPAND: reading an entity (slice 4d). Until then, reading says it is not there yet.
 export async function createMemgraphGraphRepository(
   connection: MemgraphConnection,
 ): Promise<GraphRepository> {
@@ -24,8 +23,8 @@ export async function createMemgraphGraphRepository(
 
   return {
     save: async (batch) => {
-      const currentRecords = await readCurrentAttributes(connection, batch.attributes);
-      const attributeWrites = decideAttributeWrites(batch.attributes, currentRecords);
+      const stored = await readStoredAttributes(connection, batch.attributes);
+      const attributeWrites = decideAttributeWrites(batch.attributes, stored);
 
       const entities = [
         ...batch.relations.flatMap((relation) => [relation.source, relation.target]),

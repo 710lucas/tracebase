@@ -24,7 +24,7 @@ after(async () => {
 });
 
 test(
-  "creates the unique constraint and the index on entities, and can run again",
+  "creates the unique constraints and the indexes on entities and replaced attributes, and can run again",
   { skip: skipWithoutMemgraph },
   async () => {
     const memgraph = connection as MemgraphConnection;
@@ -35,11 +35,13 @@ test(
     const constraints = await memgraph.run("SHOW CONSTRAINT INFO");
     const indexes = await memgraph.run("SHOW INDEX INFO");
 
-    assert.equal(
-      constraints.filter((row) => row["label"] === "Entity" && row["constraint type"] === "unique")
-        .length,
-      1,
-    );
-    assert.equal(indexes.filter((row) => row["label"] === "Entity").length, 1);
+    for (const label of ["Entity", "Attribute"]) {
+      assert.equal(
+        constraints.filter((row) => row["label"] === label && row["constraint type"] === "unique")
+          .length,
+        1,
+      );
+      assert.equal(indexes.filter((row) => row["label"] === label).length, 1);
+    }
   },
 );

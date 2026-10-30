@@ -26,7 +26,12 @@ async function tryConnecting(): Promise<MemgraphConnection | null> {
 const connection = await tryConnecting();
 const skipWithoutMemgraph = connection === null ? "no Memgraph is running" : false;
 
+// The replaced attribute values are nodes of their own, so they go first: deleting the entity alone
+// would leave them behind.
 async function deleteTestEntities(): Promise<void> {
+  await connection?.run(
+    "MATCH (n:Entity)-[:HAS_ATTRIBUTE]->(history:Attribute) WHERE n.value STARTS WITH '__test__' DETACH DELETE history",
+  );
   await connection?.run("MATCH (n:Entity) WHERE n.value STARTS WITH '__test__' DETACH DELETE n");
 }
 
@@ -280,31 +285,145 @@ test(
   },
 );
 
+async function readHistory() {
+  return (connection as MemgraphConnection).run(
+    `MATCH (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(history:Attribute)
+     RETURN history.name AS name, history.value AS value, history.run AS run,
+            history.updatedAt AS updatedAt
+     ORDER BY history.value`,
+  );
+}
+
+function currentBanner(row: Record<string, unknown> | undefined) {
+  return (row?.["attributes"] as Record<string, { value: string }>)["banner"]?.value;
+}
+
 test(
-  "a different value is refused and nothing of the import is stored",
+  "a newer different value becomes current and the old one is kept as a node with its provenance",
   { skip: skipWithoutMemgraph },
   async () => {
     const graph = await repository();
-    await graph.save({ relations: [], attributes: [attributeWith("nginx")] });
 
-    await assert.rejects(
-      graph.save({
-        relations: [relationWith()],
-        attributes: [attributeWith("apache", { run: "scan-2" })],
-      }),
-      /already has a different value/,
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-1", observedAt: 1000 })],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("apache", { run: "scan-2", observedAt: 5000 })],
+    });
+
+    assert.equal(currentBanner(await readAttributes()), "apache");
+    assert.deepEqual(await readHistory(), [
+      { name: "banner", value: "nginx", run: "scan-1", updatedAt: null },
+    ]);
+  },
+);
+
+test(
+  "a different value that arrives late is kept as a node and the current one stays",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("apache", { run: "scan-2", observedAt: 5000 })],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-1", observedAt: 1000 })],
+    });
+
+    assert.equal(currentBanner(await readAttributes()), "apache");
+    assert.deepEqual(await readHistory(), [
+      { name: "banner", value: "nginx", run: "scan-1", updatedAt: null },
+    ]);
+  },
+);
+
+test(
+  "sending the same history again leaves one node per replaced value",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const batch = {
+      relations: [],
+      attributes: [
+        attributeWith("nginx", { run: "scan-1", observedAt: 1000 }),
+        attributeWith("apache", { run: "scan-2", observedAt: 2000 }),
+        attributeWith("caddy", { run: "scan-3", observedAt: 3000 }),
+      ],
+    };
+
+    await graph.save(batch);
+    await graph.save(batch);
+
+    const nodes = await (connection as MemgraphConnection).run(
+      "MATCH (history:Attribute) WHERE history.name = 'banner' AND history.run STARTS WITH 'scan-' " +
+        "AND (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(history) " +
+        "RETURN count(history) AS nodes",
     );
 
-    const rows = await (connection as MemgraphConnection).run(
-      "MATCH (n:Entity) WHERE n.value STARTS WITH '__test__' RETURN count(n) AS nodes",
+    assert.equal(currentBanner(await readAttributes()), "caddy");
+    assert.deepEqual(
+      (await readHistory()).map((row) => row["value"]),
+      ["apache", "nginx"],
     );
+    assert.deepEqual(nodes, [{ nodes: 2 }]);
+  },
+);
+
+test(
+  "a value that comes back is the new current one and its old node stays",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    for (const [value, run, observedAt] of [
+      ["nginx", "scan-1", 1000],
+      ["apache", "scan-2", 2000],
+      ["nginx", "scan-3", 3000],
+    ] as const) {
+      await graph.save({ relations: [], attributes: [attributeWith(value, { run, observedAt })] });
+    }
+
     const row = await readAttributes();
 
-    assert.deepEqual(rows, [{ nodes: 1 }]);
-    assert.equal(
-      (row?.["attributes"] as Record<string, { value: string }>)["banner"]?.value,
-      "nginx",
+    assert.equal(currentBanner(row), "nginx");
+    assert.equal((row?.["attributes"] as Record<string, { run: string }>)["banner"]?.run, "scan-3");
+    assert.deepEqual(
+      (await readHistory()).map((history) => [history["value"], history["run"]]),
+      [
+        ["apache", "scan-2"],
+        ["nginx", "scan-1"],
+      ],
     );
+  },
+);
+
+test(
+  "the history of a replaced value keeps the updatedAt it had",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-1", observedAt: 1000 })],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("nginx", { run: "scan-2", observedAt: 3000 })],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith("apache", { run: "scan-3", observedAt: 5000 })],
+    });
+
+    assert.deepEqual(await readHistory(), [
+      { name: "banner", value: "nginx", run: "scan-1", updatedAt: 3000 },
+    ]);
   },
 );
 

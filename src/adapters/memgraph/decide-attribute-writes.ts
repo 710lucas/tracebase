@@ -5,18 +5,26 @@ import {
   dateOf,
   toAttributeRecord,
   type AttributeRecord,
+  type StoredAttributes,
 } from "./attribute-record.ts";
 
-// A current record that has to be written to an entity node.
+// A record of one attribute of one entity that has to be written.
 export interface AttributeWrite {
   readonly entity: Entity;
   readonly name: string;
   readonly record: AttributeRecord;
 }
 
-// Decides what an import changes in the current records (the rule of `.claude/decisions.md`, "Attributes:
-// the current value lives on the entity"), given the records the database already has. It does not
-// touch the database: it only answers which records to write.
+export interface AttributeWrites {
+  // Records that become (or change in) the entity node's `attributes` map.
+  readonly current: AttributeWrite[];
+  // Replaced values that are kept as `:Attribute` nodes.
+  readonly history: AttributeWrite[];
+}
+
+// Decides what an import changes in the attributes (the rule of `.claude/decisions.md`, "Attributes:
+// the current value lives on the entity"), given what the database already holds. It does not touch the
+// database: it only answers which records to write.
 //
 // An attribute is one attribute name of one entity (the "banner" of the IP 1.1.1.1) and has at most one
 // current record. The attributes of the import are observations: each one says "this tool saw this
@@ -25,63 +33,82 @@ export interface AttributeWrite {
 // Each observation is applied, in the order it came, on the record its attribute has by then: the
 // database's, or the one an earlier observation of this same import left. The import is not written
 // until the end, so this is the only way a later observation can see an earlier one.
-//
-// EXPAND: the case of a different value, in slice 4c-2 (see `applyObservation`).
 export function decideAttributeWrites(
   attributes: readonly Attribute[],
-  currentRecords: ReadonlyMap<string, AttributeRecord>,
-): AttributeWrite[] {
+  stored: StoredAttributes,
+): AttributeWrites {
   // The record of each attribute as it stands while the import is being applied.
-  const records = new Map(currentRecords);
+  const records = new Map(stored.records);
+  // The keys of the values already kept as nodes, including those this import is adding.
+  const historyKeys = new Set(stored.historyKeys);
   // The attributes whose record ended up different from the database's, one write for each.
-  const writes = new Map<string, AttributeWrite>();
+  const current = new Map<string, AttributeWrite>();
+  const history: AttributeWrite[] = [];
 
   for (const attribute of attributes) {
+    const incoming = toAttributeRecord(attribute);
+
+    // The same observation, already kept as a node: the same import sent again.
+    if (historyKeys.has(incoming.key)) continue;
+
     const lookupKey = attributeLookupKey(attribute.entity, attribute.name);
     const before = records.get(lookupKey);
-    const after = applyObservation(before, attribute);
+    const after = applyObservation(before, incoming);
+    const { entity, name } = attribute;
 
-    // `applyObservation` returns the very same object when the observation changes nothing.
-    if (after === before) continue;
+    if (after.replaced !== undefined) {
+      history.push({ entity, name, record: after.replaced });
+      historyKeys.add(after.replaced.key);
+    }
 
-    records.set(lookupKey, after);
-    writes.set(lookupKey, { entity: attribute.entity, name: attribute.name, record: after });
+    // `applyObservation` returns the very same object when the current record does not change.
+    if (after.current !== before) {
+      records.set(lookupKey, after.current);
+      current.set(lookupKey, { entity, name, record: after.current });
+    }
   }
 
-  return [...writes.values()];
+  return { current: [...current.values()], history };
 }
 
-// Returns the record as it is after one more observation; the same object when nothing changes.
+interface Outcome {
+  // The record the attribute has after the observation.
+  current: AttributeRecord;
+  // A value that has to be kept as a node because of it: the old current one, or the observation itself.
+  replaced?: AttributeRecord;
+}
+
+// What one more observation does to an attribute, given its current record:
 //
 // 1. No current record: the observation becomes the current record.
 // 2. Same key as the current record: the same import sent again, nothing changes.
 // 3. Same value, other key (another run or tool saw it again): only `updatedAt` moves forward.
-// 4. A different value is not handled yet: it needs the history nodes (slice 4c-2), so it is refused
-//    instead of overwriting or dropping a value.
+// 4. Different value, newer than the latest date the current record was seen: the current record is
+//    kept as a node, and the observation becomes the current record.
+// 5. Different value, not newer (an import that arrived late): the observation is kept as a node and
+//    the current record stays.
 function applyObservation(
   current: AttributeRecord | undefined,
-  attribute: Attribute,
-): AttributeRecord {
-  const incoming = toAttributeRecord(attribute);
+  incoming: AttributeRecord,
+): Outcome {
+  if (current === undefined) return { current: incoming };
+  if (current.key === incoming.key) return { current };
+  if (current.value === incoming.value) return { current: moveUpdatedAt(current, incoming) };
 
-  if (current === undefined) return incoming;
-  if (current.key === incoming.key) return current;
+  return dateOf(incoming) > latestSeen(current)
+    ? { current: incoming, replaced: current }
+    : { current, replaced: incoming };
+}
 
-  if (current.value !== incoming.value) {
-    throw new Error(
-      `attribute "${attribute.name}" of ${attribute.entity.type} ${attribute.entity.value} already ` +
-        "has a different value, and keeping the history of values is not implemented yet",
-    );
-  }
-
-  return moveUpdatedAt(current, incoming);
+// The latest date a record was seen: when its value was seen again, or else when it was first seen.
+function latestSeen(record: AttributeRecord): number {
+  return record.updatedAt ?? dateOf(record);
 }
 
 // The same value was seen again: the value and the provenance stay, and the record only moves to the
 // later date, if the new observation is later than the latest one already seen.
 function moveUpdatedAt(current: AttributeRecord, incoming: AttributeRecord): AttributeRecord {
-  const latestSeen = current.updatedAt ?? dateOf(current);
   const seenAt = dateOf(incoming);
 
-  return seenAt > latestSeen ? { ...current, updatedAt: seenAt } : current;
+  return seenAt > latestSeen(current) ? { ...current, updatedAt: seenAt } : current;
 }

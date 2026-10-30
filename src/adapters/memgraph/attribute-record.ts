@@ -2,10 +2,11 @@ import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import { attributeKey } from "./attribute-key.ts";
 
-// The current value of one attribute of one entity, as it is stored in the entity node's `attributes`
-// map: `entity.attributes["WEBSERVER_BANNER"].value` is the most recent value. It keeps the value, the
-// provenance of the observation that brought it and its `key`. `updatedAt` is the latest date the same
-// value was seen again; it is absent until that happens.
+// One value of one attribute of one entity, with the provenance of the observation that brought it. The
+// current value is stored in the entity node's `attributes` map (`entity.attributes["WEBSERVER_BANNER"]
+// .value` is the most recent value); a value that was replaced is stored as an `:Attribute` node with
+// the same fields plus its `name`. `updatedAt` is the latest date the same value was seen again; it is
+// absent until that happens.
 export interface AttributeRecord {
   value: string;
   tool: string;
@@ -17,6 +18,13 @@ export interface AttributeRecord {
   recordedAt?: number;
   updatedAt?: number;
   key: string;
+}
+
+// What the database already holds about the attributes of some entities: the current record of each
+// attribute (found by `attributeLookupKey`) and the keys of every replaced value kept as a node.
+export interface StoredAttributes {
+  readonly records: ReadonlyMap<string, AttributeRecord>;
+  readonly historyKeys: ReadonlySet<string>;
 }
 
 export function toAttributeRecord(attribute: Attribute): AttributeRecord {
