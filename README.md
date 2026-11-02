@@ -1,4 +1,4 @@
-# osint-grafo
+# tracebase
 
 Core of the TCC system: turns data from OSINT tools into a knowledge graph (Memgraph)
 that can be explored and queried in natural language.
