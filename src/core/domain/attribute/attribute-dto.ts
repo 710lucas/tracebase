@@ -8,5 +8,6 @@ export interface AttributeDTO {
   entity: Entity;
   name: string;
   values: readonly string[];
+  qualifier?: string;
   provenance: Provenance;
 }

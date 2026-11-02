@@ -12,6 +12,7 @@ import {
 export interface AttributeWrite {
   readonly entity: Entity;
   readonly name: string;
+  readonly qualifier?: string;
   readonly record: AttributeRecord;
 }
 
@@ -26,8 +27,9 @@ export interface AttributeWrites {
 // the current value lives on the entity"), given what the database already holds. It does not touch the
 // database: it only answers which records to write.
 //
-// An attribute is one attribute name of one entity (the "banner" of the IP 1.1.1.1) and has at most one
-// current record. The attributes of the import are observations: each one says "this tool saw this set
+// An attribute is one attribute name of one entity and one qualifier (the "banner" of the IP 1.1.1.1 that
+// the module "sfp_webserver" reported; without a qualifier, the "banner" of the IP) and has at most one
+// current record. Sets with different qualifiers never replace each other. The attributes of the import are observations: each one says "this tool saw this set
 // of values for that attribute", and many of them can talk about the same attribute. A set is compared
 // as a whole with the current one: values never enter or leave a set that was already stored.
 //
@@ -52,20 +54,21 @@ export function decideAttributeWrites(
     // The same observation, already kept as a node: the same import sent again.
     if (historyKeys.has(incoming.key)) continue;
 
-    const lookupKey = attributeLookupKey(attribute.entity, attribute.name);
+    const lookupKey = attributeLookupKey(attribute.entity, attribute.name, attribute.qualifier);
     const before = records.get(lookupKey);
     const after = applyObservation(before, incoming);
     const { entity, name } = attribute;
+    const qualifier = attribute.qualifier === undefined ? {} : { qualifier: attribute.qualifier };
 
     if (after.replaced !== undefined) {
-      history.push({ entity, name, record: after.replaced });
+      history.push({ entity, name, ...qualifier, record: after.replaced });
       historyKeys.add(after.replaced.key);
     }
 
     // `applyObservation` returns the very same object when the current record does not change.
     if (after.current !== before) {
       records.set(lookupKey, after.current);
-      current.set(lookupKey, { entity, name, record: after.current });
+      current.set(lookupKey, { entity, name, ...qualifier, record: after.current });
     }
   }
 

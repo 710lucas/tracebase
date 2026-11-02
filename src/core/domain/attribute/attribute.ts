@@ -26,6 +26,14 @@ import type { Provenance } from "../provenance/index.ts";
 //
 // Dependencies point one way: Attribute -> Entity and Attribute -> Provenance.
 //
+// THE QUALIFIER (optional) tells apart several sets of values that carry the SAME name for the SAME
+// entity, because they come from different sources or angles: for example the module of a tool
+// ("sfp_cinsscore" and "sfp_blocklistde" both say `MALICIOUS_SUBNET` about one network). Together
+// with the entity and the name it is part of the attribute's identity: a newer set replaces the
+// current one only when the entity, the name AND the qualifier are the same. An attribute without a
+// qualifier is identified by entity and name alone. The qualifier is free text chosen by the tool; the
+// core never interprets it.
+//
 // The attribute `name` and `values` are free-form and owned by the tool, like the entity type:
 // the core carries them and never interprets them. The name gets NFC + trim; each value is
 // kept as sent for now.
@@ -49,6 +57,8 @@ export interface Attribute {
   readonly name: string;
   // The whole set the tool found in one observation: at least one value, no repeats, sorted.
   readonly values: readonly string[];
+  // Which source or angle of the entity and name this set belongs to; see "THE QUALIFIER" above.
+  readonly qualifier?: string;
   readonly provenance: Provenance;
   // Exists only for the compiler; there is no such property at runtime.
   readonly [attributeBrand]: true;

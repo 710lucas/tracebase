@@ -26,6 +26,8 @@ const relationSchema = z.strictObject({
 const attributeSchema = z.strictObject({
   entity: entityReferenceSchema,
   name: z.string(),
+  // Which source or angle of the entity and name the set belongs to (see `attribute.ts`); optional.
+  qualifier: z.string().optional(),
   // The whole set of values the tool found together (see `attribute.ts`); the domain refuses an empty
   // list and blank texts.
   values: z.array(z.string()),

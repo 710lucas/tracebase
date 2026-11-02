@@ -162,10 +162,12 @@ function attributeWith(
   provenance: Partial<ProvenanceDTO> = {},
   name = "banner",
   entityValue = "__test__93.184.216.34",
+  qualifier?: string,
 ) {
   return createAttribute({
     entity: createEntity("IP_ADDRESS", entityValue),
     name,
+    ...(qualifier !== undefined && { qualifier }),
     values: typeof values === "string" ? [values] : values,
     provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...provenance }),
   });
@@ -178,6 +180,15 @@ async function readAttributes(entityValue = "__test__93.184.216.34") {
   );
 
   return rows[0];
+}
+
+// The current record of one attribute, read from the nested `attributes` map (name, then qualifier; the
+// key of an attribute without a qualifier is the empty text).
+function currentRecord(row: Record<string, unknown> | undefined, name: string, qualifier = "") {
+  const attributes = row?.["attributes"] as
+    Record<string, Record<string, Record<string, unknown> & { values: string[] }>> | undefined;
+
+  return attributes?.[name]?.[qualifier];
 }
 
 test(
@@ -196,15 +207,18 @@ test(
 
     // An attribute on an entity no relation mentions still creates the entity, with its type label.
     assert.deepEqual((row?.["labels"] as string[]).toSorted(), ["Entity", "IP_ADDRESS"]);
+    // One map per name; inside it, one record per qualifier, and the empty key when there is none.
     assert.deepEqual(row?.["attributes"], {
       banner: {
-        values: ["nginx"],
-        tool: "spiderfoot",
-        run: "scan-1",
-        module: "sfp_portscan_tcp",
-        confidence: 80,
-        recordedAt: 2000,
-        key: (row?.["attributes"] as { banner: { key: string } }).banner.key,
+        "": {
+          values: ["nginx"],
+          tool: "spiderfoot",
+          run: "scan-1",
+          module: "sfp_portscan_tcp",
+          confidence: 80,
+          recordedAt: 2000,
+          key: currentRecord(row, "banner")?.["key"],
+        },
       },
     });
   },
@@ -222,12 +236,9 @@ test(
     });
 
     const row = await readAttributes();
-    const attributes = row?.["attributes"] as Record<string, { values: string[] }>;
 
     assert.deepEqual(
-      Object.entries(attributes)
-        .map(([name, record]) => [name, record.values[0]])
-        .toSorted(),
+      ["banner", "os with spaces"].map((name) => [name, currentRecord(row, name)?.values[0]]),
       [
         ["banner", "nginx"],
         ["os with spaces", "Linux"],
@@ -278,7 +289,7 @@ test(
     });
 
     const row = await readAttributes();
-    const record = (row?.["attributes"] as Record<string, Record<string, unknown>>)["banner"];
+    const record = currentRecord(row, "banner");
 
     assert.equal(record?.["run"], "scan-1");
     assert.equal(record?.["observedAt"], 1000);
@@ -296,7 +307,7 @@ async function readHistory() {
 }
 
 function currentBanner(row: Record<string, unknown> | undefined) {
-  return (row?.["attributes"] as Record<string, { values: string[] }>)["banner"]?.values[0];
+  return currentRecord(row, "banner")?.values[0];
 }
 
 test(
@@ -392,7 +403,7 @@ test(
     const row = await readAttributes();
 
     assert.equal(currentBanner(row), "nginx");
-    assert.equal((row?.["attributes"] as Record<string, { run: string }>)["banner"]?.run, "scan-3");
+    assert.equal(currentRecord(row, "banner")?.["run"], "scan-3");
     assert.deepEqual(
       (await readHistory()).map((history) => [history["value"], history["run"]]),
       [
@@ -577,9 +588,7 @@ test(
       attributes: [attributeWith(HEADERS, { observedAt: 1000 }, "headers")],
     });
 
-    const record = (
-      (await readAttributes())?.["attributes"] as Record<string, { values: string[] }>
-    )["headers"];
+    const record = currentRecord(await readAttributes(), "headers");
 
     assert.deepEqual(record?.values, [...HEADERS].sort());
     assert.deepEqual(await readHistory(), []);
@@ -603,16 +612,14 @@ test(
       ],
     });
 
-    const current = (
-      (await readAttributes())?.["attributes"] as Record<string, { values: string[]; run: string }>
-    )["headers"];
+    const current = currentRecord(await readAttributes(), "headers");
     const history = await (connection as MemgraphConnection).run(
       `MATCH (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(h:Attribute)
        RETURN h.name AS name, h.values AS values, h.run AS run`,
     );
 
     assert.deepEqual(current?.values, HEADERS.slice(0, 2).sort());
-    assert.equal(current?.run, "scan-2");
+    assert.equal(current?.["run"], "scan-2");
     assert.deepEqual(history, [{ name: "headers", values: [...HEADERS].sort(), run: "scan-1" }]);
   },
 );
@@ -634,9 +641,7 @@ test(
       ],
     });
 
-    const record = (
-      (await readAttributes())?.["attributes"] as Record<string, Record<string, unknown>>
-    )["headers"];
+    const record = currentRecord(await readAttributes(), "headers");
 
     assert.equal(record?.["run"], "scan-1");
     assert.equal(record?.["updatedAt"], 5000);
@@ -653,3 +658,107 @@ test("reads a set back as one attribute", { skip: skipWithoutMemgraph }, async (
 
   assert.deepEqual(found?.attributes, [observation]);
 });
+
+// The qualifier: sets of the same entity and name from different sources live side by side.
+const CINSSCORE = "sfp_cinsscore";
+const BLOCKLIST = "sfp_blocklistde";
+
+async function readQualifiedHistory() {
+  return (connection as MemgraphConnection).run(
+    `MATCH (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(history:Attribute)
+     RETURN history.name AS name, history.qualifier AS qualifier, history.values[0] AS value
+     ORDER BY history.qualifier, history.values[0]`,
+  );
+}
+
+test(
+  "sets with different qualifiers share a name and are all current, with no history",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const list = (value: string, qualifier: string) =>
+      attributeWith(value, { observedAt: 1000 }, "MALICIOUS_SUBNET", undefined, qualifier);
+
+    await graph.save({
+      relations: [],
+      attributes: [list("cinsscore.com", CINSSCORE), list("blocklist.de", BLOCKLIST)],
+    });
+    const row = await readAttributes();
+
+    assert.equal(currentRecord(row, "MALICIOUS_SUBNET", CINSSCORE)?.values[0], "cinsscore.com");
+    assert.equal(currentRecord(row, "MALICIOUS_SUBNET", BLOCKLIST)?.values[0], "blocklist.de");
+    assert.deepEqual(await readQualifiedHistory(), []);
+  },
+);
+
+test(
+  "a newer set replaces only the set with the same qualifier, and the history node keeps it",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const list = (value: string, qualifier: string, run: string, observedAt: number) =>
+      attributeWith(value, { run, observedAt }, "MALICIOUS_SUBNET", undefined, qualifier);
+
+    await graph.save({
+      relations: [],
+      attributes: [
+        list("cinsscore.com v1", CINSSCORE, "scan-1", 1000),
+        list("blocklist.de", BLOCKLIST, "scan-1", 1000),
+      ],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [list("cinsscore.com v2", CINSSCORE, "scan-2", 5000)],
+    });
+    const row = await readAttributes();
+
+    assert.equal(currentRecord(row, "MALICIOUS_SUBNET", CINSSCORE)?.values[0], "cinsscore.com v2");
+    assert.equal(currentRecord(row, "MALICIOUS_SUBNET", BLOCKLIST)?.["run"], "scan-1");
+    assert.deepEqual(await readQualifiedHistory(), [
+      { name: "MALICIOUS_SUBNET", qualifier: CINSSCORE, value: "cinsscore.com v1" },
+    ]);
+  },
+);
+
+test(
+  "an attribute with a qualifier and one without it, under the same name, do not replace each other",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [
+        attributeWith("nginx", { observedAt: 1000 }),
+        attributeWith("apache", { observedAt: 2000 }, "banner", undefined, "sfp_webserver"),
+      ],
+    });
+    const row = await readAttributes();
+
+    assert.equal(currentRecord(row, "banner")?.values[0], "nginx");
+    assert.equal(currentRecord(row, "banner", "sfp_webserver")?.values[0], "apache");
+    assert.deepEqual(await readQualifiedHistory(), []);
+  },
+);
+
+test(
+  "reads the qualifier back, in the current sets and in the history",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const older = attributeWith("old", { run: "scan-1", observedAt: 1000 }, "n", undefined, "q");
+    const newer = attributeWith("new", { run: "scan-2", observedAt: 5000 }, "n", undefined, "q");
+    const plain = attributeWith("plain", { observedAt: 1000 }, "n");
+
+    await graph.save({ relations: [], attributes: [older, plain] });
+    await graph.save({ relations: [], attributes: [newer] });
+    const found = await graph.findEntity(newer.entity);
+
+    assert.deepEqual(byValue(found?.attributes ?? []), byValue([older, newer, plain]));
+    assert.deepEqual((found?.attributes ?? []).map((attribute) => attribute.qualifier).toSorted(), [
+      "q",
+      "q",
+      undefined,
+    ]);
+  },
+);

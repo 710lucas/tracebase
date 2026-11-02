@@ -9,11 +9,13 @@ import { toProvenance } from "./stored-provenance.ts";
 export function recordToAttribute(
   entity: Entity,
   name: string,
+  qualifier: string | undefined,
   record: AttributeRecord,
 ): Attribute {
   return createAttribute({
     entity,
     name,
+    ...(qualifier !== undefined && { qualifier }),
     values: record.values,
     provenance: toProvenance(record),
   });

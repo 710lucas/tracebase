@@ -26,6 +26,8 @@ export interface Relation {
 
 export interface Attribute {
   name: string;
+  // Which source or angle of the entity and name this set belongs to (for SpiderFoot, the module).
+  qualifier?: string;
   // Everything the tool found together in one observation (one or more texts, sorted, no repeats).
   values: string[];
   provenance: Provenance;

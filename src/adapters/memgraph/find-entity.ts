@@ -2,7 +2,7 @@ import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
 import type { EntityFindings } from "../../core/ports/graph-repository/index.ts";
-import type { AttributeRecord } from "./attribute-record.ts";
+import { fromQualifierKey, type AttributeRecord } from "./attribute-record.ts";
 import { edgeToRelation, type EdgeRow } from "./edge-to-relation.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { recordToAttribute } from "./record-to-attribute.ts";
@@ -12,7 +12,7 @@ import { recordToAttribute } from "./record-to-attribute.ts";
 //
 // The relations are the edges that touch the entity's node in either direction; the pattern asks for
 // an `:Entity` on the other end, which leaves out the `HAS_ATTRIBUTE` links. The attributes are the
-// current records in the node's `attributes` map plus the replaced values kept as `:Attribute` nodes.
+// current records in the node's `attributes` map (one per name and qualifier) plus the replaced values kept as `:Attribute` nodes.
 // Both lists come ordered by `key` so the same graph always answers in the same order.
 export async function findEntity(
   connection: MemgraphConnection,
@@ -58,11 +58,15 @@ function toRelations(edges: readonly EdgeRow[]): Relation[] {
 function toAttributes(entity: Entity, row: Record<string, unknown> | undefined): Attribute[] {
   if (row === undefined) return [];
 
-  const current = (row["current"] ?? {}) as Record<string, AttributeRecord>;
-  const history = row["history"] as (AttributeRecord & { name: string })[];
+  const current = (row["current"] ?? {}) as Record<string, Record<string, AttributeRecord>>;
+  const history = row["history"] as (AttributeRecord & { name: string; qualifier?: string })[];
 
   return [
-    ...Object.entries(current).map(([name, record]) => recordToAttribute(entity, name, record)),
-    ...history.map((record) => recordToAttribute(entity, record.name, record)),
+    ...Object.entries(current).flatMap(([name, byQualifier]) =>
+      Object.entries(byQualifier).map(([qualifierKey, record]) =>
+        recordToAttribute(entity, name, fromQualifierKey(qualifierKey), record),
+      ),
+    ),
+    ...history.map((record) => recordToAttribute(entity, record.name, record.qualifier, record)),
   ];
 }

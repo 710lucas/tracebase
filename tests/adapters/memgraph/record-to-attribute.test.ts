@@ -8,7 +8,7 @@ import { createProvenance } from "../../../src/core/domain/provenance/index.ts";
 const entity = createEntity("IP_ADDRESS", "93.184.216.34");
 
 test("a record with only the required fields becomes the attribute that was saved", () => {
-  const attribute = recordToAttribute(entity, "banner", {
+  const attribute = recordToAttribute(entity, "banner", undefined, {
     key: "k1",
     values: ["nginx"],
     tool: "spiderfoot",
@@ -27,7 +27,7 @@ test("a record with only the required fields becomes the attribute that was save
 });
 
 test("the storage fields (key, updatedAt) are not part of the attribute", () => {
-  const attribute = recordToAttribute(entity, "banner", {
+  const attribute = recordToAttribute(entity, "banner", undefined, {
     key: "k1",
     values: ["nginx"],
     tool: "spiderfoot",
@@ -57,4 +57,15 @@ test("the storage fields (key, updatedAt) are not part of the attribute", () => 
       }),
     }),
   );
+});
+
+test("the qualifier given with the record becomes the qualifier of the attribute", () => {
+  const attribute = recordToAttribute(entity, "banner", "sfp_webserver", {
+    key: "k1",
+    values: ["nginx"],
+    tool: "spiderfoot",
+    run: "scan-1",
+  });
+
+  assert.equal(attribute.qualifier, "sfp_webserver");
 });

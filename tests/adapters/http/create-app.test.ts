@@ -241,3 +241,27 @@ test("an attribute with several values is accepted as one", async () => {
     attributes: 1,
   });
 });
+
+test("an attribute qualifier is accepted and reaches the repository", async () => {
+  const attributesBefore = repository.attributes.length;
+
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      { entity: ipAddress, name: "MALICIOUS_SUBNET", qualifier: "sfp_cinsscore", values: ["x"] },
+    ],
+  });
+
+  assert.equal(response.status, 202);
+  assert.equal(repository.attributes.length, attributesBefore + 1);
+  assert.equal(repository.attributes.at(-1)?.qualifier, "sfp_cinsscore");
+});
+
+test("a blank qualifier is refused with a 400", async () => {
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [{ entity: ipAddress, name: "n", qualifier: " ", values: ["x"] }],
+  });
+
+  assert.equal(response.status, 400);
+});

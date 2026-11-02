@@ -41,6 +41,7 @@ export function importPayloadToDomain(
       entity: createEntity(attributePayload.entity.type, attributePayload.entity.value),
       name: attributePayload.name,
       values: attributePayload.values,
+      ...(attributePayload.qualifier !== undefined && { qualifier: attributePayload.qualifier }),
       provenance: buildItemProvenance(attributePayload.provenance),
     }),
   );

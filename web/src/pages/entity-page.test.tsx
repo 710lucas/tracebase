@@ -125,3 +125,21 @@ test("shows every value of one observation together in the same row", async () =
   const row = screen.getByText("x-cache: Miss").closest("tr");
   expect(row?.textContent).toContain("x-runtime: 0.2");
 });
+
+test("shows the qualifier under the attribute name", async () => {
+  stubApi({
+    "/graph/entities?type=IP_ADDRESS&value=93.184.216.34": ok({
+      entity: address,
+      relations: [],
+      attributes: [
+        { name: "list", qualifier: "sfp_cinsscore", values: ["a"], provenance },
+        { name: "list", qualifier: "sfp_blocklistde", values: ["b"], provenance },
+      ],
+    }),
+  });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+
+  expect(await screen.findByText("sfp_cinsscore")).toBeTruthy();
+  expect(screen.getByText("sfp_blocklistde")).toBeTruthy();
+});

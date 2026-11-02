@@ -149,3 +149,29 @@ test(
     assert.deepEqual(other, { total: 0, entities: [] });
   },
 );
+
+// The current records sit in a map of maps (name, then qualifier), so the counting queries unwind two
+// levels: sets with different qualifiers must each count.
+test(
+  "counts sets with different qualifiers, in the totals and in the run",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const before = await graph.graphTotals();
+    const qualified = (qualifier: string) =>
+      createAttribute({
+        entity: entity("a"),
+        name: "list",
+        qualifier,
+        values: [qualifier],
+        provenance: createProvenance({ tool: TOOL, run: "run-q", recordedAt: 1000 }),
+      });
+
+    await graph.save({ relations: [], attributes: [qualified("sfp_a"), qualified("sfp_b")] });
+    const after = await graph.graphTotals();
+    const run = (await graph.listRuns()).find((item) => item.run === "run-q");
+
+    assert.equal(after.attributes - before.attributes >= 2, true);
+    assert.equal(run?.attributes, 2);
+  },
+);

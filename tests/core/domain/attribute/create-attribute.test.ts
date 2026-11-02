@@ -10,7 +10,7 @@ import { createProvenance } from "../../../../src/core/domain/provenance/index.t
 
 const server = createEntity("IP_ADDRESS", "93.184.216.34");
 
-function fields(overrides: { name?: string; values?: readonly string[] } = {}) {
+function fields(overrides: { name?: string; qualifier?: string; values?: readonly string[] } = {}) {
   return {
     entity: server,
     name: "WEBSERVER_BANNER",
@@ -106,6 +106,21 @@ test("a later observation is another attribute, the earlier one is not overwritt
   });
   assert.deepEqual(inPatos.values, ["Patos"]);
   assert.deepEqual(inJoaoPessoa.values, ["João Pessoa"]);
+});
+
+test("the qualifier is optional: an attribute built without one does not have the property", () => {
+  assert.equal("qualifier" in createAttribute(fields()), false);
+});
+
+test("keeps the qualifier, normalized like the name", () => {
+  assert.equal(
+    createAttribute(fields({ qualifier: " sfp_cinsscore " })).qualifier,
+    "sfp_cinsscore",
+  );
+});
+
+test("rejects a blank qualifier", () => {
+  assert.throws(() => createAttribute(fields({ qualifier: "  " })), /qualifier must not be blank/);
 });
 
 test("an object literal is not an Attribute for the compiler", () => {

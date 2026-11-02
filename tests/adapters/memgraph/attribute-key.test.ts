@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { attributeKey } from "../../../src/adapters/memgraph/attribute-key.ts";
@@ -8,6 +9,7 @@ import { createProvenance, type ProvenanceDTO } from "../../../src/core/domain/p
 interface Overrides {
   entityValue?: string;
   name?: string;
+  qualifier?: string;
   values?: string[];
   provenance?: Partial<ProvenanceDTO>;
 }
@@ -16,6 +18,7 @@ function attributeWith(overrides: Overrides = {}) {
   return createAttribute({
     entity: createEntity("IP_ADDRESS", overrides.entityValue ?? "93.184.216.34"),
     name: overrides.name ?? "WEBSERVER_BANNER",
+    ...(overrides.qualifier !== undefined && { qualifier: overrides.qualifier }),
     values: overrides.values ?? ["nginx"],
     provenance: createProvenance({
       tool: "spiderfoot",
@@ -42,6 +45,7 @@ const FIELDS_THAT_MAKE_A_DIFFERENT_ATTRIBUTE: [string, Overrides][] = [
   ["name", { name: "OS" }],
   ["values", { values: ["apache"] }],
   ["number of values", { values: ["nginx", "apache"] }],
+  ["qualifier", { qualifier: "sfp_webserver" }],
 ];
 
 for (const [field, overrides] of FIELDS_THAT_MAKE_A_DIFFERENT_ATTRIBUTE) {
@@ -63,4 +67,30 @@ test("the key does not depend on the order the values were listed in, or on repe
   const shuffled = attributeWith({ values: ["c", "a", "b", "a"] });
 
   assert.equal(attributeKey(ordered), attributeKey(shuffled));
+});
+
+test("two different qualifiers give different keys", () => {
+  assert.notEqual(
+    attributeKey(attributeWith({ qualifier: "sfp_a" })),
+    attributeKey(attributeWith({ qualifier: "sfp_b" })),
+  );
+});
+
+// Keys stored before the qualifier existed must still match, so without a qualifier the hashed list is
+// exactly the one it was.
+test("an attribute without a qualifier keeps the key it had before the qualifier existed", () => {
+  const withoutQualifier = JSON.stringify([
+    "spiderfoot",
+    "scan-1",
+    "sfp_portscan_tcp",
+    "IP_ADDRESS",
+    "93.184.216.34",
+    "WEBSERVER_BANNER",
+    ["nginx"],
+  ]);
+
+  assert.equal(
+    attributeKey(attributeWith()),
+    createHash("sha256").update(withoutQualifier).digest("hex"),
+  );
 });

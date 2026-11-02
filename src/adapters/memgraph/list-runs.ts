@@ -14,12 +14,13 @@ export async function listRuns(connection: MemgraphConnection): Promise<RunSumma
       `MATCH (:Entity)-[edge]->(:Entity)
        RETURN edge.tool AS tool, edge.run AS run, count(*) AS total, min(edge.recordedAt) AS receivedAt`,
     ),
-    // Each current record is one entry of the entity's `attributes` map: unwind the names, then read
-    // the record behind each name.
+    // Each current record is one entry inside a name's map of the entity's `attributes` map: unwind the
+    // names, then the qualifiers, then read the record behind each pair.
     connection.run(
       `MATCH (n:Entity) WHERE n.attributes IS NOT NULL
        UNWIND keys(n.attributes) AS name
-       WITH n.attributes[name] AS record
+       UNWIND keys(n.attributes[name]) AS qualifier
+       WITH n.attributes[name][qualifier] AS record
        RETURN record.tool AS tool, record.run AS run, count(*) AS total, min(record.recordedAt) AS receivedAt`,
     ),
     connection.run(

@@ -1,6 +1,7 @@
 import type { Attribute } from "../../core/domain/attribute/index.ts";
 import {
   attributeLookupKey,
+  fromQualifierKey,
   type AttributeRecord,
   type StoredAttributes,
 } from "./attribute-record.ts";
@@ -34,9 +35,11 @@ export async function readStoredAttributes(
     const entity = entities.get(JSON.stringify([row["type"], row["value"]]));
     if (entity === undefined) continue;
 
-    const stored = (row["attributes"] ?? {}) as Record<string, AttributeRecord>;
-    for (const [name, record] of Object.entries(stored)) {
-      records.set(attributeLookupKey(entity, name), record);
+    const stored = (row["attributes"] ?? {}) as Record<string, Record<string, AttributeRecord>>;
+    for (const [name, byQualifier] of Object.entries(stored)) {
+      for (const [qualifierKey, record] of Object.entries(byQualifier)) {
+        records.set(attributeLookupKey(entity, name, fromQualifierKey(qualifierKey)), record);
+      }
     }
 
     for (const key of row["historyKeys"] as string[]) {

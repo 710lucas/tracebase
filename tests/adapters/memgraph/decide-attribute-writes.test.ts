@@ -18,10 +18,12 @@ function attributeWith(
   values: string | string[],
   provenance: Partial<ProvenanceDTO> = {},
   name = "WEBSERVER_BANNER",
+  qualifier?: string,
 ) {
   return createAttribute({
     entity,
     name,
+    ...(qualifier !== undefined && { qualifier }),
     values: typeof values === "string" ? [values] : values,
     provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...provenance }),
   });
@@ -37,7 +39,7 @@ function storedWith(current: TestAttribute[], history: TestAttribute[] = []): St
   return {
     records: new Map<string, AttributeRecord>(
       current.map((attribute) => [
-        attributeLookupKey(attribute.entity, attribute.name),
+        attributeLookupKey(attribute.entity, attribute.name, attribute.qualifier),
         toAttributeRecord(attribute),
       ]),
     ),
@@ -46,7 +48,12 @@ function storedWith(current: TestAttribute[], history: TestAttribute[] = []): St
 }
 
 function write(attribute: TestAttribute, record = toAttributeRecord(attribute)) {
-  return { entity, name: attribute.name, record };
+  return {
+    entity,
+    name: attribute.name,
+    ...(attribute.qualifier !== undefined && { qualifier: attribute.qualifier }),
+    record,
+  };
 }
 
 test("writes nothing when there are no attributes", () => {
@@ -284,5 +291,52 @@ test("a set that only differs by one value is another set", () => {
   assert.deepEqual(decideAttributeWrites([newer], storedWith([old])), {
     current: [write(newer)],
     history: [write(old)],
+  });
+});
+
+// The qualifier is part of what an attribute IS: sets with other qualifiers are other attributes.
+test("sets with different qualifiers are each the current record of their own attribute", () => {
+  const cinsscore = attributeWith(
+    "cinsscore.com",
+    { module: "a" },
+    "MALICIOUS_SUBNET",
+    "sfp_cinsscore",
+  );
+  const blocklist = attributeWith(
+    "blocklist.de",
+    { module: "b" },
+    "MALICIOUS_SUBNET",
+    "sfp_blocklistde",
+  );
+
+  assert.deepEqual(decideAttributeWrites([cinsscore, blocklist], nothingStored), {
+    current: [write(cinsscore), write(blocklist)],
+    history: [],
+  });
+});
+
+test("a newer different set replaces only the set with the same qualifier", () => {
+  const cinsscore = attributeWith("v1", { run: "scan-1", observedAt: 1000 }, "N", "sfp_cinsscore");
+  const blocklist = attributeWith(
+    "other",
+    { run: "scan-1", observedAt: 1000 },
+    "N",
+    "sfp_blocklistde",
+  );
+  const newer = attributeWith("v2", { run: "scan-2", observedAt: 5000 }, "N", "sfp_cinsscore");
+
+  assert.deepEqual(decideAttributeWrites([newer], storedWith([cinsscore, blocklist])), {
+    current: [write(newer)],
+    history: [write(cinsscore)],
+  });
+});
+
+test("an attribute with a qualifier does not meet the one without it", () => {
+  const plain = attributeWith("a", { observedAt: 1000 }, "N");
+  const qualified = attributeWith("b", { observedAt: 5000 }, "N", "sfp_x");
+
+  assert.deepEqual(decideAttributeWrites([qualified], storedWith([plain])), {
+    current: [write(qualified)],
+    history: [],
   });
 });
