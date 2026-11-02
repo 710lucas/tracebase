@@ -14,7 +14,7 @@ export function recordToAttribute(
   return createAttribute({
     entity,
     name,
-    value: record.value,
+    values: record.values,
     provenance: toProvenance(record),
   });
 }

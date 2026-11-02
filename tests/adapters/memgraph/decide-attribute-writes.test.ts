@@ -13,15 +13,16 @@ import { createProvenance, type ProvenanceDTO } from "../../../src/core/domain/p
 
 const entity = createEntity("IP_ADDRESS", "93.184.216.34");
 
+// A single text is a set of one value; a list is the whole set the tool found together.
 function attributeWith(
-  value: string,
+  values: string | string[],
   provenance: Partial<ProvenanceDTO> = {},
   name = "WEBSERVER_BANNER",
 ) {
   return createAttribute({
     entity,
     name,
-    value,
+    values: typeof values === "string" ? [values] : values,
     provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...provenance }),
   });
 }
@@ -241,5 +242,47 @@ test("different values in one batch, newest first, give the same current record"
   assert.deepEqual(decideAttributeWrites([third, second, first], nothingStored), {
     current: [write(third)],
     history: [write(second), write(first)],
+  });
+});
+
+// The cases below are the reason attributes are sets: values found together are one observation.
+const HEADERS = ["x-runtime: 0.2", "x-cache: Miss", "x-request-queueing: 0"];
+
+test("several values found together are one record: nothing goes to the history", () => {
+  const observation = attributeWith(HEADERS, { observedAt: 1000 }, "WEBSERVER_STRANGEHEADER");
+
+  assert.deepEqual(decideAttributeWrites([observation], nothingStored), {
+    current: [write(observation)],
+    history: [],
+  });
+});
+
+test("the same set seen by another run, whatever the order, only moves updatedAt", () => {
+  const first = attributeWith(HEADERS, { run: "scan-1", observedAt: 1000 });
+  const again = attributeWith([...HEADERS].reverse(), { run: "scan-2", observedAt: 5000 });
+
+  assert.deepEqual(decideAttributeWrites([again], storedWith([first])), {
+    current: [write(first, { ...toAttributeRecord(first), updatedAt: 5000 })],
+    history: [],
+  });
+});
+
+test("a newer set with fewer values replaces the old set, which is kept as one node", () => {
+  const old = attributeWith(HEADERS, { run: "scan-1", observedAt: 1000 });
+  const newer = attributeWith(HEADERS.slice(0, 2), { run: "scan-2", observedAt: 5000 });
+
+  assert.deepEqual(decideAttributeWrites([newer], storedWith([old])), {
+    current: [write(newer)],
+    history: [write(old)],
+  });
+});
+
+test("a set that only differs by one value is another set", () => {
+  const old = attributeWith(["a", "b"], { run: "scan-1", observedAt: 1000 });
+  const newer = attributeWith(["a", "b", "c"], { run: "scan-2", observedAt: 5000 });
+
+  assert.deepEqual(decideAttributeWrites([newer], storedWith([old])), {
+    current: [write(newer)],
+    history: [write(old)],
   });
 });

@@ -10,7 +10,7 @@ const address = createEntity("IP_ADDRESS", "93.184.216.34");
 const attribute = createAttribute({
   entity: address,
   name: "WEBSERVER_BANNER",
-  value: "nginx/1.25",
+  values: ["nginx/1.25"],
   provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
 });
 

@@ -8,7 +8,7 @@ import { createProvenance, type ProvenanceDTO } from "../../../src/core/domain/p
 interface Overrides {
   entityValue?: string;
   name?: string;
-  value?: string;
+  values?: string[];
   provenance?: Partial<ProvenanceDTO>;
 }
 
@@ -16,7 +16,7 @@ function attributeWith(overrides: Overrides = {}) {
   return createAttribute({
     entity: createEntity("IP_ADDRESS", overrides.entityValue ?? "93.184.216.34"),
     name: overrides.name ?? "WEBSERVER_BANNER",
-    value: overrides.value ?? "nginx",
+    values: overrides.values ?? ["nginx"],
     provenance: createProvenance({
       tool: "spiderfoot",
       run: "scan-1",
@@ -40,7 +40,8 @@ const FIELDS_THAT_MAKE_A_DIFFERENT_ATTRIBUTE: [string, Overrides][] = [
   ["module", { provenance: { module: "sfp_other" } }],
   ["entity", { entityValue: "10.0.0.1" }],
   ["name", { name: "OS" }],
-  ["value", { value: "apache" }],
+  ["values", { values: ["apache"] }],
+  ["number of values", { values: ["nginx", "apache"] }],
 ];
 
 for (const [field, overrides] of FIELDS_THAT_MAKE_A_DIFFERENT_ATTRIBUTE) {
@@ -55,4 +56,11 @@ test("fields that only describe the finding do not change the key", () => {
   });
 
   assert.equal(attributeKey(described), attributeKey(attributeWith()));
+});
+
+test("the key does not depend on the order the values were listed in, or on repeats", () => {
+  const ordered = attributeWith({ values: ["a", "b", "c"] });
+  const shuffled = attributeWith({ values: ["c", "a", "b", "a"] });
+
+  assert.equal(attributeKey(ordered), attributeKey(shuffled));
 });

@@ -47,7 +47,7 @@ export function StatusPage() {
                   <strong>{formatNumber(status.totals.relations)}</strong> relations
                 </div>
                 <div>
-                  <strong>{formatNumber(status.totals.attributes)}</strong> attribute values
+                  <strong>{formatNumber(status.totals.attributes)}</strong> attributes
                 </div>
               </div>
             )}

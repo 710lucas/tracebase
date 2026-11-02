@@ -65,7 +65,7 @@ function banner(value: string, run: string, recordedAt: number) {
   return createAttribute({
     entity: entity("a"),
     name: "banner",
-    value,
+    values: [value],
     provenance: createProvenance({ tool: TOOL, run, recordedAt }),
   });
 }

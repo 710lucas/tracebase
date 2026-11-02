@@ -27,16 +27,16 @@ const findings = {
     {
       entity: address,
       name: "banner",
-      value: "nginx",
+      values: ["nginx"],
       provenance: { ...provenance, recordedAt: 1000 },
     },
     {
       entity: address,
       name: "banner",
-      value: "apache",
+      values: ["apache"],
       provenance: { ...provenance, recordedAt: 2000 },
     },
-    { entity: address, name: "asn", value: "AS15133", provenance },
+    { entity: address, name: "asn", values: ["AS15133"], provenance },
   ],
 };
 
@@ -102,4 +102,26 @@ test("an unknown address shows the not found page", async () => {
   renderApp("/nowhere");
 
   expect(await screen.findByText("Page not found")).toBeTruthy();
+});
+
+test("shows every value of one observation together in the same row", async () => {
+  const headers = {
+    entity: address,
+    name: "WEBSERVER_STRANGEHEADER",
+    values: ["x-cache: Miss", "x-runtime: 0.2"],
+    provenance,
+  };
+  stubApi({
+    "/graph/entities?type=IP_ADDRESS&value=93.184.216.34": ok({
+      entity: address,
+      relations: [],
+      attributes: [headers],
+    }),
+  });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+
+  expect(await screen.findByText("Attributes (1)")).toBeTruthy();
+  const row = screen.getByText("x-cache: Miss").closest("tr");
+  expect(row?.textContent).toContain("x-runtime: 0.2");
 });

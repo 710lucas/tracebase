@@ -1,8 +1,9 @@
 import type { Attribute } from "../api/types.ts";
 import { describeProvenance, formatDate, seenAt } from "../format.ts";
 
-// The attribute values of one entity, grouped by name and the newest first inside each name. A name with
-// several rows has several values: a replaced one, or values that were seen together.
+// The attributes of one entity, grouped by name and the newest first inside each name. Each row is one
+// observation: the whole set of values the tool found together. A name with several rows has more than one
+// observation: the current one and the sets that were replaced by it.
 export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
   if (attributes.length === 0) {
     return <p className="muted">No attributes.</p>;
@@ -19,7 +20,7 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
       <thead>
         <tr>
           <th>Name</th>
-          <th>Value</th>
+          <th>Values</th>
           <th>Reported by</th>
           <th>Seen</th>
         </tr>
@@ -28,7 +29,11 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
         {sorted.map((attribute, index) => (
           <tr key={index}>
             <td>{attribute.name}</td>
-            <td className="value">{attribute.value}</td>
+            <td className="value">
+              {attribute.values.map((value) => (
+                <div key={value}>{value}</div>
+              ))}
+            </td>
             <td>{describeProvenance(attribute.provenance)}</td>
             <td>{formatDate(seenAt(attribute.provenance))}</td>
           </tr>

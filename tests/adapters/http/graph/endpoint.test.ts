@@ -42,7 +42,7 @@ before(async () => {
         {
           entity: ipAddress,
           name: "WEBSERVER_BANNER",
-          value: "nginx/1.25",
+          values: ["nginx/1.25"],
           provenance: { module: "sfp_webserver" },
         },
       ],
@@ -108,7 +108,7 @@ test("answers 200 with the entity, its relations and its attributes, each with p
       {
         entity: ipAddress,
         name: "WEBSERVER_BANNER",
-        value: "nginx/1.25",
+        values: ["nginx/1.25"],
         provenance: { tool: "spiderfoot", run: "scan-1", module: "sfp_webserver" },
       },
     ],

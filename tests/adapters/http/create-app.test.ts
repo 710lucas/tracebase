@@ -39,7 +39,7 @@ const validPayload = {
       provenance: { module: "sfp_dnsresolve", confidence: 100 },
     },
   ],
-  attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", value: "nginx/1.25" }],
+  attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", values: ["nginx/1.25"] }],
 };
 
 function postImportPayload(payload: unknown) {
@@ -83,7 +83,7 @@ test("a tool cannot send recordedAt: that time is ours", async () => {
       {
         entity: ipAddress,
         name: "WEBSERVER_BANNER",
-        value: "nginx/1.25",
+        values: ["nginx/1.25"],
         provenance: { recordedAt: 1 },
       },
     ],
@@ -147,7 +147,7 @@ test("a payload with the wrong structure is a 400 that says where", async () => 
 test("a field the payload does not define is rejected, so typos are not lost", async () => {
   const response = await postImportPayload({
     source: { tool: "t", run: "r" },
-    attributes: [{ entity: ipAddress, name: "n", value: "v", provenance: { confidance: 5 } }],
+    attributes: [{ entity: ipAddress, name: "n", values: ["v"], provenance: { confidance: 5 } }],
   });
   assert.equal(response.status, 400);
 });
@@ -188,4 +188,56 @@ test("a request with no JSON body is a 400", async () => {
   const response = await fetch(importsUrl, { method: "POST" });
   assert.equal(response.status, 400);
   assert.match(((await response.json()) as { error: string }).error, /JSON body/);
+});
+
+test("an attribute still sent with the old `value` field is a 400, not a silent loss", async () => {
+  const response = await fetch(importsUrl, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      ...validPayload,
+      attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", value: "nginx/1.25" }],
+    }),
+  });
+
+  assert.equal(response.status, 400);
+});
+
+test("an attribute with no values or a blank value is a 400 that says why", async () => {
+  for (const [values, reason] of [
+    [[], "values must not be empty"],
+    [[" "], "a value must not be blank"],
+  ] as const) {
+    const response = await fetch(importsUrl, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        ...validPayload,
+        attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", values }],
+      }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.match(((await response.json()) as { error: string }).error, new RegExp(reason));
+  }
+});
+
+test("an attribute with several values is accepted as one", async () => {
+  const response = await fetch(importsUrl, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      ...validPayload,
+      attributes: [
+        { entity: ipAddress, name: "WEBSERVER_STRANGEHEADER", values: ["x-a: 1", "x-b: 2"] },
+      ],
+    }),
+  });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual((await response.json()) as object, {
+    status: "accepted",
+    relations: 1,
+    attributes: 1,
+  });
 });

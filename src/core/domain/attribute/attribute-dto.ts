@@ -7,6 +7,6 @@ import type { Provenance } from "../provenance/index.ts";
 export interface AttributeDTO {
   entity: Entity;
   name: string;
-  value: string;
+  values: readonly string[];
   provenance: Provenance;
 }

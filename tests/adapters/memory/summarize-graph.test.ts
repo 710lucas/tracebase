@@ -25,8 +25,8 @@ const relations = [
   createRelation({ source: other, target: address, provenance: second }),
 ];
 const attributes = [
-  createAttribute({ entity: address, name: "banner", value: "nginx", provenance: first }),
-  createAttribute({ entity: address, name: "banner", value: "apache", provenance: undated }),
+  createAttribute({ entity: address, name: "banner", values: ["nginx"], provenance: first }),
+  createAttribute({ entity: address, name: "banner", values: ["apache"], provenance: undated }),
 ];
 
 test("collects every entity the lists mention, once each", () => {

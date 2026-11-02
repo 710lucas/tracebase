@@ -26,7 +26,7 @@ export function ImportsPage() {
                   <th>Run</th>
                   <th>First received</th>
                   <th className="number">Relations</th>
-                  <th className="number">Attribute values</th>
+                  <th className="number">Attributes</th>
                 </tr>
               </thead>
               <tbody>

@@ -27,8 +27,9 @@ export interface AttributeWrites {
 // database: it only answers which records to write.
 //
 // An attribute is one attribute name of one entity (the "banner" of the IP 1.1.1.1) and has at most one
-// current record. The attributes of the import are observations: each one says "this tool saw this
-// value for that attribute", and many of them can talk about the same attribute.
+// current record. The attributes of the import are observations: each one says "this tool saw this set
+// of values for that attribute", and many of them can talk about the same attribute. A set is compared
+// as a whole with the current one: values never enter or leave a set that was already stored.
 //
 // Each observation is applied, in the order it came, on the record its attribute has by then: the
 // database's, or the one an earlier observation of this same import left. The import is not written
@@ -82,10 +83,10 @@ interface Outcome {
 //
 // 1. No current record: the observation becomes the current record.
 // 2. Same key as the current record: the same import sent again, nothing changes.
-// 3. Same value, other key (another run or tool saw it again): only `updatedAt` moves forward.
-// 4. Different value, newer than the latest date the current record was seen: the current record is
+// 3. Same set, other key (another run or tool saw it again): only `updatedAt` moves forward.
+// 4. Different set, newer than the latest date the current record was seen: the current record is
 //    kept as a node, and the observation becomes the current record.
-// 5. Different value, not newer (an import that arrived late): the observation is kept as a node and
+// 5. Different set, not newer (an import that arrived late): the observation is kept as a node and
 //    the current record stays.
 function applyObservation(
   current: AttributeRecord | undefined,
@@ -93,7 +94,9 @@ function applyObservation(
 ): Outcome {
   if (current === undefined) return { current: incoming };
   if (current.key === incoming.key) return { current };
-  if (current.value === incoming.value) return { current: moveUpdatedAt(current, incoming) };
+  if (sameValues(current.values, incoming.values)) {
+    return { current: moveUpdatedAt(current, incoming) };
+  }
 
   return dateOf(incoming) > latestSeen(current)
     ? { current: incoming, replaced: current }
@@ -111,4 +114,10 @@ function moveUpdatedAt(current: AttributeRecord, incoming: AttributeRecord): Att
   const seenAt = dateOf(incoming);
 
   return seenAt > latestSeen(current) ? { ...current, updatedAt: seenAt } : current;
+}
+
+// Two sets are the same when they hold the same values. Both are sorted and without repeats (the domain
+// and `toAttributeRecord` see to that), so comparing them position by position is enough.
+function sameValues(first: readonly string[], second: readonly string[]): boolean {
+  return first.length === second.length && first.every((value, index) => value === second[index]);
 }

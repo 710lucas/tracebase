@@ -14,7 +14,7 @@ function parsePayload(payload: unknown) {
 const validPayload = parsePayload({
   source: { tool: "spiderfoot", run: "scan-1" },
   relations: [{ source: { type: "DOMAIN_NAME", value: "example.com" }, target: ipAddress }],
-  attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", value: "nginx/1.25" }],
+  attributes: [{ entity: ipAddress, name: "WEBSERVER_BANNER", values: ["nginx/1.25"] }],
 });
 
 test("stamps every item of a batch with the time the batch was received", async (t) => {
@@ -64,7 +64,7 @@ test("lets the domain error reach the caller and saves nothing when a value is r
     source: { tool: "spiderfoot", run: "scan-1" },
     relations: [{ source: { type: "DOMAIN_NAME", value: "example.com" }, target: ipAddress }],
     attributes: [
-      { entity: ipAddress, name: "BANNER", value: "x", provenance: { confidence: 101 } },
+      { entity: ipAddress, name: "BANNER", values: ["x"], provenance: { confidence: 101 } },
     ],
   });
 

@@ -2,13 +2,14 @@ import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import { attributeKey } from "./attribute-key.ts";
 
-// One value of one attribute of one entity, with the provenance of the observation that brought it. The
-// current value is stored in the entity node's `attributes` map (`entity.attributes["WEBSERVER_BANNER"]
-// .value` is the most recent value); a value that was replaced is stored as an `:Attribute` node with
-// the same fields plus its `name`. `updatedAt` is the latest date the same value was seen again; it is
-// absent until that happens.
+// One set of values of one attribute of one entity, with the provenance of the observation that brought
+// it. The current set is stored in the entity node's `attributes` map (`entity.attributes
+// ["WEBSERVER_STRANGEHEADER"].values` is the most recent set); a set that was replaced is stored as an
+// `:Attribute` node with the same fields plus its `name`. `updatedAt` is the latest date the same set
+// was seen again; it is absent until that happens.
 export interface AttributeRecord {
-  value: string;
+  // Sorted and without repeats, like `Attribute.values`.
+  values: string[];
   tool: string;
   run: string;
   module?: string;
@@ -31,7 +32,7 @@ export function toAttributeRecord(attribute: Attribute): AttributeRecord {
   const { provenance } = attribute;
 
   return {
-    value: attribute.value,
+    values: [...attribute.values],
     tool: provenance.tool,
     run: provenance.run,
     module: provenance.module,

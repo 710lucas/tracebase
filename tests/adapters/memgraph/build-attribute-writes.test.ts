@@ -15,7 +15,13 @@ test("sets each current record in the attributes map of its entity, without the 
       {
         entity,
         name: "WEBSERVER_BANNER",
-        record: { value: "nginx", tool: "spiderfoot", run: "scan-1", module: undefined, key: "k1" },
+        record: {
+          values: ["nginx"],
+          tool: "spiderfoot",
+          run: "scan-1",
+          module: undefined,
+          key: "k1",
+        },
       },
     ],
     history: [],
@@ -33,7 +39,7 @@ test("sets each current record in the attributes map of its entity, without the 
             entityType: "IP_ADDRESS",
             entityValue: "93.184.216.34",
             name: "WEBSERVER_BANNER",
-            record: { value: "nginx", tool: "spiderfoot", run: "scan-1", key: "k1" },
+            record: { values: ["nginx"], tool: "spiderfoot", run: "scan-1", key: "k1" },
           },
         ],
       },
@@ -48,7 +54,13 @@ test("keeps each replaced value as an :Attribute node linked to its entity, foun
       {
         entity,
         name: "WEBSERVER_BANNER",
-        record: { value: "nginx", tool: "spiderfoot", run: "scan-1", updatedAt: 3000, key: "k1" },
+        record: {
+          values: ["nginx"],
+          tool: "spiderfoot",
+          run: "scan-1",
+          updatedAt: 3000,
+          key: "k1",
+        },
       },
     ],
   });
@@ -68,7 +80,7 @@ test("keeps each replaced value as an :Attribute node linked to its entity, foun
             entityValue: "93.184.216.34",
             name: "WEBSERVER_BANNER",
             record: {
-              value: "nginx",
+              values: ["nginx"],
               tool: "spiderfoot",
               run: "scan-1",
               updatedAt: 3000,
@@ -82,7 +94,7 @@ test("keeps each replaced value as an :Attribute node linked to its entity, foun
 });
 
 test("writes the current records before the replaced values", () => {
-  const record = { value: "x", tool: "spiderfoot", run: "scan-1", key: "k" };
+  const record = { values: ["x"], tool: "spiderfoot", run: "scan-1", key: "k" };
 
   const statements = buildAttributeWrites({
     current: [{ entity, name: "a", record }],

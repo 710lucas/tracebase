@@ -26,7 +26,8 @@ export interface Relation {
 
 export interface Attribute {
   name: string;
-  value: string;
+  // Everything the tool found together in one observation (one or more texts, sorted, no repeats).
+  values: string[];
   provenance: Provenance;
 }
 

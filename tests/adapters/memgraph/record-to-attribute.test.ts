@@ -10,7 +10,7 @@ const entity = createEntity("IP_ADDRESS", "93.184.216.34");
 test("a record with only the required fields becomes the attribute that was saved", () => {
   const attribute = recordToAttribute(entity, "banner", {
     key: "k1",
-    value: "nginx",
+    values: ["nginx"],
     tool: "spiderfoot",
     run: "scan-1",
   });
@@ -20,7 +20,7 @@ test("a record with only the required fields becomes the attribute that was save
     createAttribute({
       entity,
       name: "banner",
-      value: "nginx",
+      values: ["nginx"],
       provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
     }),
   );
@@ -29,7 +29,7 @@ test("a record with only the required fields becomes the attribute that was save
 test("the storage fields (key, updatedAt) are not part of the attribute", () => {
   const attribute = recordToAttribute(entity, "banner", {
     key: "k1",
-    value: "nginx",
+    values: ["nginx"],
     tool: "spiderfoot",
     run: "scan-1",
     module: "sfp_portscan_tcp",
@@ -45,7 +45,7 @@ test("the storage fields (key, updatedAt) are not part of the attribute", () => 
     createAttribute({
       entity,
       name: "banner",
-      value: "nginx",
+      values: ["nginx"],
       provenance: createProvenance({
         tool: "spiderfoot",
         run: "scan-1",

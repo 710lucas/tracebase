@@ -49,7 +49,7 @@ before(async () => {
         {
           entity: { type: "IP_ADDRESS", value: "93.184.216.34" },
           name: "WEBSERVER_BANNER",
-          value: "nginx/1.25",
+          values: ["nginx/1.25"],
         },
       ],
     }),

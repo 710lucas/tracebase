@@ -40,7 +40,7 @@ export function importPayloadToDomain(
     createAttribute({
       entity: createEntity(attributePayload.entity.type, attributePayload.entity.value),
       name: attributePayload.name,
-      value: attributePayload.value,
+      values: attributePayload.values,
       provenance: buildItemProvenance(attributePayload.provenance),
     }),
   );

@@ -156,8 +156,9 @@ test(
   },
 );
 
+// A single text is a set of one value; a list is the whole set the tool found together.
 function attributeWith(
-  value: string,
+  values: string | string[],
   provenance: Partial<ProvenanceDTO> = {},
   name = "banner",
   entityValue = "__test__93.184.216.34",
@@ -165,7 +166,7 @@ function attributeWith(
   return createAttribute({
     entity: createEntity("IP_ADDRESS", entityValue),
     name,
-    value,
+    values: typeof values === "string" ? [values] : values,
     provenance: createProvenance({ tool: "spiderfoot", run: "scan-1", ...provenance }),
   });
 }
@@ -197,7 +198,7 @@ test(
     assert.deepEqual((row?.["labels"] as string[]).toSorted(), ["Entity", "IP_ADDRESS"]);
     assert.deepEqual(row?.["attributes"], {
       banner: {
-        value: "nginx",
+        values: ["nginx"],
         tool: "spiderfoot",
         run: "scan-1",
         module: "sfp_portscan_tcp",
@@ -221,11 +222,11 @@ test(
     });
 
     const row = await readAttributes();
-    const attributes = row?.["attributes"] as Record<string, { value: string }>;
+    const attributes = row?.["attributes"] as Record<string, { values: string[] }>;
 
     assert.deepEqual(
       Object.entries(attributes)
-        .map(([name, record]) => [name, record.value])
+        .map(([name, record]) => [name, record.values[0]])
         .toSorted(),
       [
         ["banner", "nginx"],
@@ -288,14 +289,14 @@ test(
 async function readHistory() {
   return (connection as MemgraphConnection).run(
     `MATCH (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(history:Attribute)
-     RETURN history.name AS name, history.value AS value, history.run AS run,
+     RETURN history.name AS name, history.values[0] AS value, history.run AS run,
             history.updatedAt AS updatedAt
-     ORDER BY history.value`,
+     ORDER BY history.values[0]`,
   );
 }
 
 function currentBanner(row: Record<string, unknown> | undefined) {
-  return (row?.["attributes"] as Record<string, { value: string }>)["banner"]?.value;
+  return (row?.["attributes"] as Record<string, { values: string[] }>)["banner"]?.values[0];
 }
 
 test(
@@ -430,8 +431,8 @@ test(
 const target = createEntity("IP_ADDRESS", "__test__93.184.216.34");
 const source = createEntity("DOMAIN_NAME", "__test__example.com");
 
-function byValue<T extends { value: string }>(items: readonly T[]) {
-  return items.toSorted((a, b) => a.value.localeCompare(b.value));
+function byValue<T extends { values: readonly string[] }>(items: readonly T[]) {
+  return items.toSorted((a, b) => (a.values[0] ?? "").localeCompare(b.values[0] ?? ""));
 }
 
 test(
@@ -560,4 +561,95 @@ test("finds only what concerns the entity asked for", { skip: skipWithoutMemgrap
 
   assert.deepEqual((await graph.findEntity(target))?.relations, [relation]);
   assert.deepEqual((await graph.findEntity(target))?.attributes, []);
+});
+
+// Attributes are sets: values the tool found together are ONE record, never a record per value.
+const HEADERS = ["x-runtime: 0.2", "x-cache: Miss", "x-request-queueing: 0"];
+
+test(
+  "several values found together are stored as one current record, with no history",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith(HEADERS, { observedAt: 1000 }, "headers")],
+    });
+
+    const record = (
+      (await readAttributes())?.["attributes"] as Record<string, { values: string[] }>
+    )["headers"];
+
+    assert.deepEqual(record?.values, [...HEADERS].sort());
+    assert.deepEqual(await readHistory(), []);
+  },
+);
+
+test(
+  "a newer set replaces the old one, which is kept as a single node holding its whole set",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith(HEADERS, { run: "scan-1", observedAt: 1000 }, "headers")],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [
+        attributeWith(HEADERS.slice(0, 2), { run: "scan-2", observedAt: 5000 }, "headers"),
+      ],
+    });
+
+    const current = (
+      (await readAttributes())?.["attributes"] as Record<string, { values: string[]; run: string }>
+    )["headers"];
+    const history = await (connection as MemgraphConnection).run(
+      `MATCH (:Entity {value: '__test__93.184.216.34'})-[:HAS_ATTRIBUTE]->(h:Attribute)
+       RETURN h.name AS name, h.values AS values, h.run AS run`,
+    );
+
+    assert.deepEqual(current?.values, HEADERS.slice(0, 2).sort());
+    assert.equal(current?.run, "scan-2");
+    assert.deepEqual(history, [{ name: "headers", values: [...HEADERS].sort(), run: "scan-1" }]);
+  },
+);
+
+test(
+  "the same set sent again by a later run only moves updatedAt",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+
+    await graph.save({
+      relations: [],
+      attributes: [attributeWith(HEADERS, { run: "scan-1", observedAt: 1000 }, "headers")],
+    });
+    await graph.save({
+      relations: [],
+      attributes: [
+        attributeWith([...HEADERS].reverse(), { run: "scan-2", observedAt: 5000 }, "headers"),
+      ],
+    });
+
+    const record = (
+      (await readAttributes())?.["attributes"] as Record<string, Record<string, unknown>>
+    )["headers"];
+
+    assert.equal(record?.["run"], "scan-1");
+    assert.equal(record?.["updatedAt"], 5000);
+    assert.deepEqual(await readHistory(), []);
+  },
+);
+
+test("reads a set back as one attribute", { skip: skipWithoutMemgraph }, async () => {
+  const graph = await repository();
+  const observation = attributeWith(HEADERS, { observedAt: 1000 }, "headers");
+
+  await graph.save({ relations: [], attributes: [observation] });
+  const found = await graph.findEntity(observation.entity);
+
+  assert.deepEqual(found?.attributes, [observation]);
 });

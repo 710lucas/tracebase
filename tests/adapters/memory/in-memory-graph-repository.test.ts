@@ -14,7 +14,7 @@ const relation = createRelation({ source: domain, target: address, provenance })
 const attribute = createAttribute({
   entity: address,
   name: "WEBSERVER_BANNER",
-  value: "nginx/1.25",
+  values: ["nginx/1.25"],
   provenance,
 });
 
