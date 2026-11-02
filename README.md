@@ -7,7 +7,7 @@ that can be explored and queried in natural language.
 - For the AI: `CLAUDE.md` and `.claude/`.
 
 Status: in development. The domain model, the import and read API, the SpiderFoot reader (a separate
-program) and the Memgraph repository exist; next is the proof with a real scan (see
+program), the Memgraph repository and the first version of the front end (`web/`) exist (see
 [`docs/roadmap.md`](docs/roadmap.md)).
 
 Run the API (`PORT` defaults to 3000; set `MEMGRAPH_URL` to keep the graph in Memgraph, otherwise it
@@ -16,3 +16,14 @@ is kept in memory; see [`docs/memgraph.md`](docs/memgraph.md)):
 ```bash
 MEMGRAPH_URL=bolt://localhost:7687 PORT=3001 npm run start
 ```
+
+The front end is a React app in `web/` (see [`docs/frontend.md`](docs/frontend.md)). Install and build it
+once, and the API serves it at `http://localhost:<PORT>/`:
+
+```bash
+npm run web:install
+npm run web:build
+```
+
+While working on it, `npm run web:dev` starts the development server (it forwards the API paths to
+`API_ADDRESS`, `http://localhost:3000` by default).

@@ -12,8 +12,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 \"tests/**/*.test.ts\"",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:architecture && npm run coverage",
-    "start": "node src/main.ts"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:architecture && npm run coverage && npm run web:check",
+    "start": "node src/main.ts",
+    "web:install": "npm --prefix web install",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:check": "npm --prefix web run check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

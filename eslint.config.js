@@ -15,7 +15,7 @@ import tseslint from "typescript-eslint";
  * base is big enough for them to pay off; they are slower because they run the type checker.
  */
 export default tseslint.config(
-  { ignores: ["node_modules/**", "coverage/**"] },
+  { ignores: ["**/node_modules/**", "coverage/**", "web/dist/**"] },
   eslint.configs.recommended,
   tseslint.configs.strict,
   {
