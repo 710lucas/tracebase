@@ -3,7 +3,9 @@ import type { Request, Response } from "express";
 // speaks HTTP/1.1 through Express).
 import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
+import type { EntityListQuery } from "../../../core/ports/graph-repository/index.ts";
 import { ENTITY_QUERY_KEY, type EntityQuery } from "./middlewares/validate-find-entity-request.ts";
+import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
 
 // Controller of the graph routes: translates HTTP into a call to the service and the service's result
@@ -35,6 +37,19 @@ export function createGraphController(service: GraphService) {
 
         throw error;
       }
+    },
+
+    // The entity types with how many entities each has. No input to validate.
+    listEntityTypes: async (_request: Request, response: Response): Promise<void> => {
+      response.status(constants.HTTP_STATUS_OK).json({ types: await service.listEntityTypes() });
+    },
+
+    // One page of the entities of the type in the path. `validateListEntitiesRequest` has already
+    // checked `search`, `limit` and `offset` and left the whole query in `response.locals`.
+    listEntities: async (_request: Request, response: Response): Promise<void> => {
+      const query = response.locals[ENTITY_LIST_QUERY_KEY] as EntityListQuery;
+
+      response.status(constants.HTTP_STATUS_OK).json(await service.listEntities(query));
     },
   };
 }

@@ -13,7 +13,10 @@ const repository = createInMemoryGraphRepository();
 before(async () => {
   // Port 0 asks the operating system for a free port, so tests never collide with a running API.
   await new Promise<void>((resolve) => {
-    runningServer = createApp({ graphRepository: repository }).listen(0, () => resolve());
+    runningServer = createApp({
+      graphRepository: repository,
+      runtimeInfo: { storage: "memory" },
+    }).listen(0, () => resolve());
   });
   baseUrl = `http://localhost:${(runningServer.address() as AddressInfo).port}`;
   importsUrl = `${baseUrl}/imports`;
@@ -96,7 +99,10 @@ test("a failure of the repository is a 500, not a lost request", async () => {
       throw new Error("storage is down");
     },
   };
-  const failingApp = createApp({ graphRepository: failingRepository });
+  const failingApp = createApp({
+    graphRepository: failingRepository,
+    runtimeInfo: { storage: "memory" },
+  });
   // Express prints the error of a 500 answer unless its environment is "test"; this test expects it.
   failingApp.set("env", "test");
   const failingServer = await new Promise<Server>((resolve) => {
@@ -159,7 +165,7 @@ test("a value the domain rejects is a 400 with the domain's reason", async () =>
 });
 
 test("a method the route does not define is not found", async () => {
-  const response = await fetch(importsUrl);
+  const response = await fetch(importsUrl, { method: "DELETE" });
   assert.equal(response.status, 404);
 });
 

@@ -40,6 +40,11 @@ export function createImportsController(service: ImportsService) {
         throw error;
       }
     },
+
+    // What has been imported so far: one entry per run. No input to validate.
+    listRuns: async (_request: Request, response: Response): Promise<void> => {
+      response.status(constants.HTTP_STATUS_OK).json({ runs: await service.listRuns() });
+    },
   };
 }
 

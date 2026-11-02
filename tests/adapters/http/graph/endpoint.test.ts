@@ -12,9 +12,10 @@ before(async () => {
   // The import route logs what it saves; the import below is on purpose, so the log is silenced.
   const silencedLog = mock.method(console, "log", () => {});
   await new Promise<void>((resolve) => {
-    runningServer = createApp({ graphRepository: createInMemoryGraphRepository() }).listen(0, () =>
-      resolve(),
-    );
+    runningServer = createApp({
+      graphRepository: createInMemoryGraphRepository(),
+      runtimeInfo: { storage: "memory" },
+    }).listen(0, () => resolve());
   });
   baseUrl = `http://localhost:${(runningServer.address() as AddressInfo).port}`;
 

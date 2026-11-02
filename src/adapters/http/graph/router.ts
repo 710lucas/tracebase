@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { GraphRepository } from "../../../core/ports/graph-repository/index.ts";
 import { createGraphController } from "./controller.ts";
 import { validateFindEntityRequest } from "./middlewares/validate-find-entity-request.ts";
+import { validateListEntitiesRequest } from "./middlewares/validate-list-entities-request.ts";
 import { createGraphService } from "./service.ts";
 
 // The routes under `/graph` (the mount point is chosen in `create-app.ts`): which routes exist, how
@@ -14,6 +15,10 @@ export function createGraphRouter(graphRepository: GraphRepository): Router {
   const router = Router();
 
   router.get("/entities", validateFindEntityRequest, controller.findEntity);
+
+  router.get("/types", controller.listEntityTypes);
+
+  router.get("/types/:type/entities", validateListEntitiesRequest, controller.listEntities);
 
   return router;
 }

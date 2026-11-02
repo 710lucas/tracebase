@@ -21,5 +21,8 @@ export function createImportsRouter(graphRepository: GraphRepository): Router {
     validateImportRequest,
     controller.importBatch,
   );
+
+  router.get("/", controller.listRuns);
+
   return router;
 }

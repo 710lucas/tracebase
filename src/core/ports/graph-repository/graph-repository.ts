@@ -1,6 +1,13 @@
 import type { Attribute } from "../../domain/attribute/index.ts";
 import type { Entity } from "../../domain/entity/index.ts";
 import type { Relation } from "../../domain/relation/index.ts";
+import type {
+  EntityListQuery,
+  EntityPage,
+  EntityTypeCount,
+  GraphTotals,
+  RunSummary,
+} from "./graph-overview.ts";
 
 // What one import brings: the relations and the attributes found by one run of one tool. Both are
 // validated models, so a repository never has to check them again.
@@ -30,7 +37,14 @@ export interface EntityFindings {
 //
 // EXPAND: the idempotent-write key (so importing the same run twice does not duplicate) belongs to the
 // Memgraph adapter step.
+//
+// The other four read the graph as a whole (see `graph-overview.ts`): the runs that were imported, the
+// entity types with their counts, a page of the entities of one type, and the size of the graph.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
+  listRuns(): Promise<RunSummary[]>;
+  listEntityTypes(): Promise<EntityTypeCount[]>;
+  listEntities(query: EntityListQuery): Promise<EntityPage>;
+  graphTotals(): Promise<GraphTotals>;
 }

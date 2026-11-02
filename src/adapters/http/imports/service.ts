@@ -1,4 +1,4 @@
-import type { GraphRepository } from "../../../core/ports/graph-repository/index.ts";
+import type { GraphRepository, RunSummary } from "../../../core/ports/graph-repository/index.ts";
 import type { ImportPayloadDTO } from "./import-payload-schema.ts";
 import { importPayloadToDomain } from "./import-payload-to-domain.ts";
 
@@ -9,6 +9,7 @@ export interface ImportResult {
 
 export interface ImportsService {
   importBatch(payload: ImportPayloadDTO): Promise<ImportResult>;
+  listRuns(): Promise<RunSummary[]>;
 }
 
 // Service of the imports module: carries out the import using the core and answers the controller with
@@ -19,6 +20,8 @@ export interface ImportsService {
 // builds the domain objects from the payload, saves them and says how many there were. Domain errors
 // (a value the domain rejects) are not caught here; they reach the controller, which decides how to
 // answer them. Nothing is saved when the payload is rejected.
+//
+// `listRuns`: the runs the graph holds, with how many relations and attributes each brought.
 //
 // `now` is a parameter so tests can fix the time; the application uses the real clock.
 export function createImportsService(
@@ -33,5 +36,7 @@ export function createImportsService(
       console.log(`import saved: ${relations.length} relations, ${attributes.length} attributes`);
       return { relations: relations.length, attributes: attributes.length };
     },
+
+    listRuns: () => repository.listRuns(),
   };
 }

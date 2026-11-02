@@ -2,6 +2,13 @@ import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
+import {
+  collectEntities,
+  countEntityTypes,
+  pageOfEntities,
+  summarizeRuns,
+  totalsOf,
+} from "./summarize-graph.ts";
 
 // A `GraphRepository` that keeps everything in lists inside the running process, so it is lost when
 // the process stops. It lets the whole import path work before a real database exists, and in tests
@@ -48,6 +55,15 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
       }
       return { entity, relations: entityRelations, attributes: entityAttributes };
     },
+
+    listRuns: async () => summarizeRuns(relations, attributes),
+
+    listEntityTypes: async () => countEntityTypes(collectEntities(relations, attributes)),
+
+    listEntities: async (query) => pageOfEntities(collectEntities(relations, attributes), query),
+
+    graphTotals: async () =>
+      totalsOf(collectEntities(relations, attributes), relations, attributes),
   };
 }
 

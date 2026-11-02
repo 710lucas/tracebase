@@ -4,6 +4,10 @@ import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
 import { findEntity } from "./find-entity.ts";
+import { graphTotals } from "./graph-totals.ts";
+import { listEntities } from "./list-entities.ts";
+import { listEntityTypes } from "./list-entity-types.ts";
+import { listRuns } from "./list-runs.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { ensureMemgraphSchema } from "./memgraph-schema.ts";
 import { readStoredAttributes } from "./read-stored-attributes.ts";
@@ -40,5 +44,13 @@ export async function createMemgraphGraphRepository(
     },
 
     findEntity: (entity) => findEntity(connection, entity),
+
+    listRuns: () => listRuns(connection),
+
+    listEntityTypes: () => listEntityTypes(connection),
+
+    listEntities: (query) => listEntities(connection, query),
+
+    graphTotals: () => graphTotals(connection),
   };
 }
