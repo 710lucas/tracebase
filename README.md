@@ -11,10 +11,11 @@ program), the Memgraph repository and the first version of the front end (`web/`
 [`docs/roadmap.md`](docs/roadmap.md)).
 
 Run the API (`PORT` defaults to 3333; set `MEMGRAPH_URL` to keep the graph in Memgraph, otherwise it
-is kept in memory; see [`docs/memgraph.md`](docs/memgraph.md)):
+is kept in memory; `MEMGRAPH_USER` and `MEMGRAPH_PASSWORD` are for a Memgraph that asks for them; see
+[`docs/memgraph.md`](docs/memgraph.md)):
 
 ```bash
-MEMGRAPH_URL=bolt://localhost:7687 PORT=3001 npm run start
+MEMGRAPH_URL=bolt://localhost:7687 npm run start
 ```
 
 The front end is a React app in `web/` (see [`docs/frontend.md`](docs/frontend.md)). Install and build it
