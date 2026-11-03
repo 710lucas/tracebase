@@ -152,16 +152,41 @@ test("a field the payload does not define is rejected, so typos are not lost", a
   assert.equal(response.status, 400);
 });
 
-test("a value the domain rejects is a 400 with the domain's reason", async () => {
+test("a value the domain rejects is a 400 with the domain's reason and the item it was in", async () => {
   const relationsBefore = repository.relations.length;
   const response = await postImportPayload({
     ...validPayload,
     relations: [{ ...validPayload.relations[0], provenance: { confidence: 101 } }],
   });
   assert.equal(response.status, 400);
-  const body = (await response.json()) as { error: string };
-  assert.match(body.error, /confidence must be between 0 and 100/);
+  const body = (await response.json()) as {
+    error: string;
+    issues: { path: string; message: string }[];
+  };
+  assert.equal(body.error, "invalid payload");
+  assert.equal(body.issues.length, 1);
+  assert.equal(body.issues[0]?.path, "relations.0");
+  assert.match(body.issues[0]?.message ?? "", /confidence must be between 0 and 100/);
   assert.equal(repository.relations.length, relationsBefore);
+});
+
+test("the answer points at the bad item among many, and nothing of the batch is saved", async () => {
+  const attributesBefore = repository.attributes.length;
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      { entity: ipAddress, name: "a", values: ["x"] },
+      { entity: ipAddress, name: "b", values: ["y"] },
+      { entity: ipAddress, name: "c", values: ["ok", "  "] },
+    ],
+  });
+  const body = (await response.json()) as { issues: { path: string; message: string }[] };
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(body.issues, [
+    { path: "attributes.2", message: "Invalid attribute: a value must not be blank" },
+  ]);
+  assert.equal(repository.attributes.length, attributesBefore);
 });
 
 test("a method the route does not define is not found", async () => {
@@ -218,7 +243,9 @@ test("an attribute with no values or a blank value is a 400 that says why", asyn
     });
 
     assert.equal(response.status, 400);
-    assert.match(((await response.json()) as { error: string }).error, new RegExp(reason));
+    const body = (await response.json()) as { issues: { path: string; message: string }[] };
+    assert.equal(body.issues[0]?.path, "attributes.0");
+    assert.match(body.issues[0]?.message ?? "", new RegExp(reason));
   }
 });
 

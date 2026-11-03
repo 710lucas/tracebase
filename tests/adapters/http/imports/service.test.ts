@@ -4,6 +4,7 @@ import { InvalidProvenanceError } from "../../../../src/core/domain/provenance/i
 import { createInMemoryGraphRepository } from "../../../../src/adapters/memory/in-memory-graph-repository.ts";
 import { importPayloadSchema } from "../../../../src/adapters/http/imports/import-payload-schema.ts";
 import { createImportsService } from "../../../../src/adapters/http/imports/service.ts";
+import { InvalidImportItemError } from "../../../../src/adapters/http/imports/invalid-import-item-error.ts";
 
 const ipAddress = { type: "IP_ADDRESS", value: "93.184.216.34" };
 
@@ -70,7 +71,10 @@ test("lets the domain error reach the caller and saves nothing when a value is r
 
   await assert.rejects(
     createImportsService(repository).importBatch(payload),
-    InvalidProvenanceError,
+    (error: unknown) =>
+      error instanceof InvalidImportItemError &&
+      error.path === "attributes.0" &&
+      error.cause instanceof InvalidProvenanceError,
   );
 
   assert.deepEqual(repository.relations, []);
