@@ -7,7 +7,7 @@ import { createGraphRepository } from "./create-graph-repository.ts";
 // decides the port and the repository, and prints where the server is. `PORT` and `MEMGRAPH_URL` come
 // from the environment so the same code runs anywhere: with `MEMGRAPH_URL` set (for example
 // `bolt://localhost:7687`) the graph is kept in Memgraph, without it in memory.
-const DEFAULT_PORT = 3000;
+const DEFAULT_PORT = 3333;
 const port = Number(process.env["PORT"] ?? DEFAULT_PORT);
 const memgraphUrl = process.env["MEMGRAPH_URL"];
 

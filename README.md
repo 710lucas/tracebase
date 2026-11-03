@@ -10,7 +10,7 @@ Status: in development. The domain model, the import and read API, the SpiderFoo
 program), the Memgraph repository and the first version of the front end (`web/`) exist (see
 [`docs/roadmap.md`](docs/roadmap.md)).
 
-Run the API (`PORT` defaults to 3000; set `MEMGRAPH_URL` to keep the graph in Memgraph, otherwise it
+Run the API (`PORT` defaults to 3333; set `MEMGRAPH_URL` to keep the graph in Memgraph, otherwise it
 is kept in memory; see [`docs/memgraph.md`](docs/memgraph.md)):
 
 ```bash
@@ -26,4 +26,4 @@ npm run web:build
 ```
 
 While working on it, `npm run web:dev` starts the development server (it forwards the API paths to
-`API_ADDRESS`, `http://localhost:3000` by default).
+`API_ADDRESS`, `http://localhost:3333` by default).

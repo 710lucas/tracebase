@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 // Where the API listens while developing (`npm run web:dev` next to `npm start`). In production the API
 // serves the built files itself, so the page and the API share one address and nothing is proxied.
-const API_ADDRESS = process.env["API_ADDRESS"] ?? "http://localhost:3000";
+const API_ADDRESS = process.env["API_ADDRESS"] ?? "http://localhost:3333";
 
 export default defineConfig({
   plugins: [react()],
