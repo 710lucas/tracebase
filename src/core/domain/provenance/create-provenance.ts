@@ -8,7 +8,9 @@ const MAX_CONFIDENCE = 100;
 
 // The only supported way to build a Provenance. Guarantees:
 //   - `tool` and `run` are not blank;
-//   - `recordRef`, when present, is not blank (a blank reference points at nothing);
+//   - `recordRefs`, when present, has at least one reference and none is blank (a blank reference
+//     points at nothing); repeats are dropped and the list is sorted, so the same references always
+//     have the same shape;
 //   - `confidence`, when present, is a number between 0 and 100;
 //   - `observedAt` and `recordedAt`, when present, are non-negative integers (epoch milliseconds);
 //   - the result is immutable.
@@ -25,9 +27,8 @@ export function createProvenance(fields: ProvenanceDTO): Provenance {
   if (fields.run.trim() === "") {
     throw new InvalidProvenanceError("run must not be blank");
   }
-  if (fields.recordRef !== undefined && fields.recordRef.trim() === "") {
-    throw new InvalidProvenanceError("recordRef must not be blank when present");
-  }
+  const recordRefs =
+    fields.recordRefs === undefined ? undefined : normalizeRecordRefs(fields.recordRefs);
   if (
     fields.confidence !== undefined &&
     !(fields.confidence >= MIN_CONFIDENCE && fields.confidence <= MAX_CONFIDENCE)
@@ -55,5 +56,21 @@ export function createProvenance(fields: ProvenanceDTO): Provenance {
   }
 
   // The only cast of the brand: this is where the invariants were just checked.
-  return Object.freeze({ ...fields }) as Provenance;
+  return Object.freeze({
+    ...fields,
+    ...(recordRefs !== undefined && { recordRefs }),
+  }) as Provenance;
+}
+
+// A `Set` drops the repeats; the default sort orders by UTF-16 code units, the same on every machine.
+function normalizeRecordRefs(recordRefs: readonly string[]): readonly string[] {
+  const unique = [...new Set(recordRefs)].sort();
+  if (unique.length === 0) {
+    throw new InvalidProvenanceError("recordRefs must not be empty when present");
+  }
+  if (unique.some((reference) => reference.trim() === "")) {
+    throw new InvalidProvenanceError("a record reference must not be blank");
+  }
+
+  return Object.freeze(unique);
 }

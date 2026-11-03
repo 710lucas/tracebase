@@ -9,7 +9,8 @@ import { z } from "zod";
 const entityReferenceSchema = z.strictObject({ type: z.string(), value: z.string() });
 
 const itemProvenanceSchema = z.strictObject({
-  recordRef: z.string().optional(),
+  // Every record of the tool behind the item (the domain refuses an empty list and blank texts).
+  recordRefs: z.array(z.string()).optional(),
   module: z.string().optional(),
   confidence: z.number().optional(),
   observedAt: z.number().optional(),

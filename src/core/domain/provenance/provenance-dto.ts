@@ -3,7 +3,7 @@
 export interface ProvenanceDTO {
   tool: string;
   run: string;
-  recordRef?: string;
+  recordRefs?: readonly string[];
   module?: string;
   confidence?: number;
   observedAt?: number;

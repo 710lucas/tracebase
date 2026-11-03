@@ -8,7 +8,7 @@ export interface StoredProvenance {
   run: string;
   module?: string;
   confidence?: number;
-  recordRef?: string;
+  recordRefs?: string[];
   observedAt?: number;
   recordedAt?: number;
 }
@@ -22,7 +22,7 @@ export function toProvenance(stored: StoredProvenance): Provenance {
     run: stored.run,
     ...(stored.module !== undefined && { module: stored.module }),
     ...(stored.confidence !== undefined && { confidence: stored.confidence }),
-    ...(stored.recordRef !== undefined && { recordRef: stored.recordRef }),
+    ...(stored.recordRefs !== undefined && { recordRefs: stored.recordRefs }),
     ...(stored.observedAt !== undefined && { observedAt: stored.observedAt }),
     ...(stored.recordedAt !== undefined && { recordedAt: stored.recordedAt }),
   });

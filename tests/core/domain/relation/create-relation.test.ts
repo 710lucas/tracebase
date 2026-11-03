@@ -47,7 +47,7 @@ test("a link found through an intermediate URL keeps that URL's record reference
     provenance: createProvenance({
       tool: "spiderfoot",
       run: "scan1",
-      recordRef: "hash-of-the-email-event",
+      recordRefs: ["hash-of-the-email-event"],
     }),
     viaRecordRefs: ["hash-of-the-linked-url-event"],
   });

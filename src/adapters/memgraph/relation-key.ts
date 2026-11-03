@@ -5,7 +5,7 @@ import type { Relation } from "../../core/domain/relation/index.ts";
 // relation `MERGE`s by this key, so importing the same run twice leaves the graph as it was.
 //
 // The fields are tool, run, module, source (type and value), target (type and value) and relation
-// type. Confidence, `observedAt`, `recordedAt` and `recordRef` are not part of it: they describe the
+// type. Confidence, `observedAt`, `recordedAt` and `recordRefs` are not part of it: they describe the
 // finding but do not make it a different one. An absent module or type is not the same as an empty one.
 //
 // The fields go into a JSON list before hashing, so two different sets of fields can never produce the

@@ -12,7 +12,7 @@ test("accepts only tool and run (tool-agnostic minimum)", () => {
   const provenance = createProvenance(MINIMUM);
   assert.equal(provenance.tool, "some-tool");
   assert.equal(provenance.run, "run-1");
-  assert.equal(provenance.recordRef, undefined);
+  assert.equal(provenance.recordRefs, undefined);
   assert.equal(provenance.module, undefined);
   assert.equal(provenance.confidence, undefined);
   assert.equal(provenance.observedAt, undefined);
@@ -23,12 +23,12 @@ test("keeps the optional fields when given", () => {
   const provenance = createProvenance({
     tool: "spiderfoot",
     run: "scan1",
-    recordRef: "hashA",
+    recordRefs: ["hashA"],
     module: "sfp_dnsresolve",
     confidence: 80,
     observedAt: 1760000000000,
   });
-  assert.equal(provenance.recordRef, "hashA");
+  assert.deepEqual(provenance.recordRefs, ["hashA"]);
   assert.equal(provenance.module, "sfp_dnsresolve");
   assert.equal(provenance.confidence, 80);
   assert.equal(provenance.observedAt, 1760000000000);
@@ -45,11 +45,32 @@ test("rejects a blank tool or run and says which one", () => {
   );
 });
 
-test("rejects a blank recordRef when present", () => {
+test("rejects an empty list of recordRefs and a blank reference", () => {
   assert.throws(
-    () => createProvenance({ ...MINIMUM, recordRef: "  " }),
-    new InvalidProvenanceError("recordRef must not be blank when present"),
+    () => createProvenance({ ...MINIMUM, recordRefs: [] }),
+    new InvalidProvenanceError("recordRefs must not be empty when present"),
   );
+  assert.throws(
+    () => createProvenance({ ...MINIMUM, recordRefs: ["hashA", "  "] }),
+    new InvalidProvenanceError("a record reference must not be blank"),
+  );
+});
+
+test("drops repeated recordRefs and sorts the rest, so the same references have the same shape", () => {
+  const first = createProvenance({ ...MINIMUM, recordRefs: ["b", "a", "b"] });
+  const second = createProvenance({ ...MINIMUM, recordRefs: ["a", "b"] });
+
+  assert.deepEqual(first.recordRefs, ["a", "b"]);
+  assert.deepEqual(first.recordRefs, second.recordRefs);
+});
+
+test("does not change the list of recordRefs it was given, and the result cannot be mutated", () => {
+  const given = ["b", "a"];
+
+  const provenance = createProvenance({ ...MINIMUM, recordRefs: given });
+
+  assert.deepEqual(given, ["b", "a"]);
+  assert.ok(Object.isFrozen(provenance.recordRefs));
 });
 
 test("accepts the confidence boundaries 0 and 100", () => {

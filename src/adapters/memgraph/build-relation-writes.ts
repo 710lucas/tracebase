@@ -57,7 +57,7 @@ function toEdgeRow(relation: Relation): EdgeRow {
       tool: provenance.tool,
       run: provenance.run,
       module: provenance.module,
-      recordRef: provenance.recordRef,
+      recordRefs: provenance.recordRefs === undefined ? undefined : [...provenance.recordRefs],
       confidence: provenance.confidence,
       observedAt: provenance.observedAt,
       recordedAt: provenance.recordedAt,

@@ -265,3 +265,42 @@ test("a blank qualifier is refused with a 400", async () => {
 
   assert.equal(response.status, 400);
 });
+
+test("the recordRefs of an item reach the repository, sorted and without repeats", async () => {
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      {
+        entity: ipAddress,
+        name: "n",
+        values: ["v"],
+        provenance: { recordRefs: ["b", "a", "b"] },
+      },
+    ],
+  });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(repository.attributes.at(-1)?.provenance.recordRefs, ["a", "b"]);
+});
+
+test("the old single recordRef field is refused with a 400", async () => {
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      { entity: ipAddress, name: "n", values: ["v"], provenance: { recordRef: "hashA" } },
+    ],
+  });
+
+  assert.equal(response.status, 400);
+});
+
+test("a blank recordRefs entry is refused with a 400", async () => {
+  const response = await postImportPayload({
+    ...validPayload,
+    attributes: [
+      { entity: ipAddress, name: "n", values: ["v"], provenance: { recordRefs: [" "] } },
+    ],
+  });
+
+  assert.equal(response.status, 400);
+});

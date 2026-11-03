@@ -13,14 +13,14 @@ test("a relation carries source, target and provenance", () => {
     provenance: createProvenance({
       tool: "spiderfoot",
       run: "scan1",
-      recordRef: "hashA",
+      recordRefs: ["hashA"],
       module: "sfp_dnsresolve",
       confidence: 100,
     }),
   });
   assert.equal(relation.source.value, "example.com");
   assert.equal(relation.provenance.tool, "spiderfoot");
-  assert.equal(relation.provenance.recordRef, "hashA");
+  assert.deepEqual(relation.provenance.recordRefs, ["hashA"]);
 });
 
 test("a tool with no records still produces a valid relation", () => {
@@ -29,5 +29,5 @@ test("a tool with no records still produces a valid relation", () => {
     target: createEntity("ACCOUNT", "aa"),
     provenance: createProvenance({ tool: "mailscan", run: "run-001" }),
   });
-  assert.equal(relation.provenance.recordRef, undefined);
+  assert.equal(relation.provenance.recordRefs, undefined);
 });

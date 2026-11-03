@@ -21,7 +21,7 @@ import type { Provenance } from "../provenance/index.ts";
 //      the repository keeps them (the current set, and the replaced ones as history) is the
 //      adapter's decision, not the model's.
 //
-// Which tool and run it came from, and optionally the tool's own record (`recordRef`), is in
+// Which tool and run it came from, and optionally the tool's own records (`recordRefs`), is in
 // `provenance`.
 //
 // Dependencies point one way: Attribute -> Entity and Attribute -> Provenance.
@@ -41,8 +41,8 @@ import type { Provenance } from "../provenance/index.ts";
 // SpiderFoot -> Attribute (translation done by the SpiderFoot ADAPTER): a DESCRIPTOR or
 // SUBENTITY event becomes an attribute of the closest entity above it. The event's type
 // ("WEBSERVER_BANNER", "GEOINFO"...) becomes `name`; the events of one type and module that share a
-// parent event are grouped, and their `data` become `values`; the module, confidence and scan become
-// the `provenance`, and the parent event's hash the `recordRef`.
+// entity are grouped, and their `data` become `values`; the module, confidence and scan become
+// the `provenance`, and the hashes of the events that carry the values the `recordRefs`.
 //
 // Build instances with `createAttribute`, which enforces the invariants. The brand below makes the
 // compiler refuse a literal or an `AttributeDTO` where an `Attribute` is expected.

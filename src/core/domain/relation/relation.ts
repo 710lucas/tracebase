@@ -32,7 +32,7 @@ export interface Relation {
   // References to the tool's own records of the intermediate events the link passed through
   // without turning them into entities, in order. Covers the X -> A -> C case: A is a
   // descriptor in the path, so the edge X -> C would otherwise lose it. Those events belong to
-  // the same tool and the same run as this relation. Like `Provenance.recordRef`, it is optional
+  // the same tool and the same run as this relation. Like `Provenance.recordRefs`, it is optional
   // and only makes sense for a tool that has such records. Absent or empty means "direct link".
   //
   // SpiderFoot: when walking up `source_event_hash` from C to the closest entity X, every
@@ -46,7 +46,7 @@ export interface Relation {
   //   └─ LINKED_URL_INTERNAL  https://www.example.com/contact   (SUBENTITY, not an entity)
   //      └─ EMAILADDR  contact@example.com                <- entity C
   //
-  // The relation is www.example.com -> contact@example.com, with `provenance.recordRef` = the
+  // The relation is www.example.com -> contact@example.com, with `provenance.recordRefs` = the
   // e-mail event's hash and `viaRecordRefs` = [the URL event's hash]. Without it the edge would
   // not say the address was found through that URL, because the URL becomes an attribute of
   // www.example.com and the link skips it. A tool with no records leaves the field out.

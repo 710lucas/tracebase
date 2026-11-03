@@ -56,7 +56,7 @@ for (const [field, overrides] of FIELDS_THAT_MAKE_A_DIFFERENT_ATTRIBUTE) {
 
 test("fields that only describe the finding do not change the key", () => {
   const described = attributeWith({
-    provenance: { confidence: 50, observedAt: 1000, recordedAt: 2000, recordRef: "hash-1" },
+    provenance: { confidence: 50, observedAt: 1000, recordedAt: 2000, recordRefs: ["hash-1"] },
   });
 
   assert.equal(attributeKey(described), attributeKey(attributeWith()));

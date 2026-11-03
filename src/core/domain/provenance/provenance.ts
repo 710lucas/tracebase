@@ -14,7 +14,7 @@
 // SpiderFoot -> Provenance (translation done by the SpiderFoot ADAPTER):
 //   tool        -> the constant "spiderfoot"
 //   run         -> the scan id (`tbl_scan_results.scan_instance_id`, a GUID)
-//   recordRef   -> the event's `hash` (`event_hash`)
+//   recordRefs  -> the `hash` (`event_hash`) of every event that produced the finding
 //   module      -> the event's `module` (e.g. "sfp_dnsresolve")
 //   confidence  -> the event's `confidence`, 0 to 100 (SpiderFoot already uses this scale)
 //   observedAt  -> the event's `generated`, which SpiderFoot stores in SECONDS with a fraction
@@ -32,11 +32,16 @@ export interface Provenance {
   readonly tool: string;
   readonly run: string;
 
-  // A reference to the tool's own record that produced the finding (in SpiderFoot, the event
-  // hash). It only lets you go back to the original: to open that record in the tool, or to
-  // link the finding to its raw data. It is NOT part of any identity and no query depends on
-  // it. A tool with no such record, such as one that just returns a list, leaves it out.
-  readonly recordRef?: string;
+  // References to ALL the tool's own records that produced the finding (in SpiderFoot, the event
+  // hashes). One finding can come from several records: the tool reports the same link twice a few
+  // milliseconds apart, or one set of values is found through several events. The graph keeps one
+  // relation or attribute and this list says every record behind it. It only lets you go back to the
+  // originals: to open them in the tool, or to link the finding to its raw data. It is NOT part of any
+  // identity and no query depends on it. It never says which run a record came from, and the tool is
+  // expected to join the repeats of one run itself before sending. A tool with no such records, such
+  // as one that just returns a list, leaves it out. At least one reference, none blank, no repeats,
+  // kept sorted so the same list always has the same shape.
+  readonly recordRefs?: readonly string[];
 
   // The tool's sub-component that produced the finding ("sfp_dnsresolve" in SpiderFoot).
   readonly module?: string;

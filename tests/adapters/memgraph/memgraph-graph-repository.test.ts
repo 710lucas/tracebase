@@ -470,7 +470,7 @@ test(
         run: "scan-1",
         module: "sfp_dnsresolve",
         confidence: 90,
-        recordRef: "hash-1",
+        recordRefs: ["hash-1"],
         observedAt: 1000,
         recordedAt: 2000,
       }),
@@ -759,6 +759,31 @@ test(
       "q",
       "q",
       undefined,
+    ]);
+  },
+);
+
+// Every record behind a finding travels in the provenance and comes back whole, for an edge and for the
+// current record of an attribute.
+test(
+  "the recordRefs of an attribute and of a relation are stored and read back",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    const observation = attributeWith(
+      "nginx",
+      { recordRefs: ["event-b", "event-a"], observedAt: 1000 },
+      "banner",
+    );
+    const link = relationWith({ recordRefs: ["event-2", "event-1"] });
+
+    await graph.save({ relations: [link], attributes: [observation] });
+    const found = await graph.findEntity(observation.entity);
+
+    assert.deepEqual(found?.attributes[0]?.provenance.recordRefs, ["event-a", "event-b"]);
+    assert.deepEqual((await graph.findEntity(link.source))?.relations[0]?.provenance.recordRefs, [
+      "event-1",
+      "event-2",
     ]);
   },
 );

@@ -15,7 +15,7 @@ export interface AttributeRecord {
   run: string;
   module?: string;
   confidence?: number;
-  recordRef?: string;
+  recordRefs?: string[];
   observedAt?: number;
   recordedAt?: number;
   updatedAt?: number;
@@ -50,7 +50,7 @@ export function toAttributeRecord(attribute: Attribute): AttributeRecord {
     run: provenance.run,
     module: provenance.module,
     confidence: provenance.confidence,
-    recordRef: provenance.recordRef,
+    recordRefs: provenance.recordRefs === undefined ? undefined : [...provenance.recordRefs],
     observedAt: provenance.observedAt,
     recordedAt: provenance.recordedAt,
     key: attributeKey(attribute),

@@ -157,7 +157,6 @@ test(
   { skip: skipWithoutMemgraph },
   async () => {
     const graph = await repository();
-    const before = await graph.graphTotals();
     const qualified = (qualifier: string) =>
       createAttribute({
         entity: entity("a"),
@@ -171,7 +170,8 @@ test(
     const after = await graph.graphTotals();
     const run = (await graph.listRuns()).find((item) => item.run === "run-q");
 
-    assert.equal(after.attributes - before.attributes >= 2, true);
+    // A lower bound, not a difference: other test files add and delete their own data at the same time.
+    assert.ok(after.attributes >= 2);
     assert.equal(run?.attributes, 2);
   },
 );
