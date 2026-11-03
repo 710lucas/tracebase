@@ -1,12 +1,13 @@
 import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
-import type {
-  EntityListQuery,
-  EntityPage,
-  EntityTypeCount,
-  GraphTotals,
-  RunSummary,
+import {
+  createRunSummaries,
+  type EntityListQuery,
+  type EntityPage,
+  type EntityTypeCount,
+  type GraphTotals,
+  type RunSummary,
 } from "../../core/ports/graph-repository/index.ts";
 
 // The questions about the graph as a whole, answered over the two lists the in-memory repository keeps.
@@ -35,26 +36,16 @@ export function summarizeRuns(
   relations: readonly Relation[],
   attributes: readonly Attribute[],
 ): RunSummary[] {
-  const byRun = new Map<string, MutableRun>();
+  const runs = createRunSummaries();
 
   for (const { provenance } of relations) {
-    const run = countFor(byRun, provenance);
-    run.relations += 1;
-    keepEarliest(run, provenance.recordedAt);
+    runs.add(provenance, "relations", 1, provenance.recordedAt);
   }
   for (const { provenance } of attributes) {
-    const run = countFor(byRun, provenance);
-    run.attributes += 1;
-    keepEarliest(run, provenance.recordedAt);
+    runs.add(provenance, "attributes", 1, provenance.recordedAt);
   }
 
-  // Most recently received first; runs with no date go last.
-  return [...byRun.values()].sort(
-    (first, second) =>
-      (second.receivedAt ?? 0) - (first.receivedAt ?? 0) ||
-      first.tool.localeCompare(second.tool) ||
-      first.run.localeCompare(second.run),
-  );
+  return runs.toList();
 }
 
 export function countEntityTypes(entities: readonly Entity[]): EntityTypeCount[] {
@@ -88,35 +79,4 @@ export function totalsOf(
   attributes: readonly Attribute[],
 ): GraphTotals {
   return { entities: entities.length, relations: relations.length, attributes: attributes.length };
-}
-
-interface MutableRun {
-  tool: string;
-  run: string;
-  relations: number;
-  attributes: number;
-  receivedAt?: number;
-}
-
-function countFor(
-  byRun: Map<string, MutableRun>,
-  provenance: { tool: string; run: string },
-): MutableRun {
-  const key = JSON.stringify([provenance.tool, provenance.run]);
-  const existing = byRun.get(key);
-  if (existing !== undefined) return existing;
-
-  const created: MutableRun = {
-    tool: provenance.tool,
-    run: provenance.run,
-    relations: 0,
-    attributes: 0,
-  };
-  byRun.set(key, created);
-  return created;
-}
-
-function keepEarliest(run: MutableRun, recordedAt: number | undefined): void {
-  if (recordedAt === undefined) return;
-  run.receivedAt = run.receivedAt === undefined ? recordedAt : Math.min(run.receivedAt, recordedAt);
 }

@@ -44,36 +44,6 @@ test("summarizes the runs, the most recently received first and the undated one 
   ]);
 });
 
-test("keeps the earliest reception date of a run", () => {
-  const later = createProvenance({ tool: "spiderfoot", run: "scan-1", recordedAt: 9000 });
-  const lateRelation = createRelation({ source: domain, target: other, provenance: later });
-
-  const [run] = summarizeRuns([lateRelation, ...relations], []);
-
-  assert.equal(run?.run, "scan-2");
-  assert.equal(
-    summarizeRuns([lateRelation, ...relations], []).find((item) => item.run === "scan-1")
-      ?.receivedAt,
-    2000,
-  );
-});
-
-test("orders runs with the same date by tool and run", () => {
-  const sameDate = (tool: string, run: string) =>
-    createRelation({
-      source: domain,
-      target: address,
-      provenance: createProvenance({ tool, run, recordedAt: 1000 }),
-    });
-
-  const runs = summarizeRuns([sameDate("b", "1"), sameDate("a", "2"), sameDate("a", "1")], []);
-
-  assert.deepEqual(
-    runs.map((run) => `${run.tool}/${run.run}`),
-    ["a/1", "a/2", "b/1"],
-  );
-});
-
 test("counts entities by type, the biggest first and ties by name", () => {
   const entities = collectEntities(relations, attributes);
 

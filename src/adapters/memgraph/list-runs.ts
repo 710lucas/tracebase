@@ -1,4 +1,9 @@
-import type { RunSummary } from "../../core/ports/graph-repository/index.ts";
+import {
+  createRunSummaries,
+  type RunItemKind,
+  type RunSummaries,
+  type RunSummary,
+} from "../../core/ports/graph-repository/index.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 
 // The runs the graph knows, with how many relations and attribute values each one brought. A run is not a
@@ -29,44 +34,21 @@ export async function listRuns(connection: MemgraphConnection): Promise<RunSumma
     ),
   ]);
 
-  const byRun = new Map<string, MutableRun>();
-  for (const row of edges) add(byRun, row, "relations");
-  for (const row of [...current, ...history]) add(byRun, row, "attributes");
+  const runs = createRunSummaries();
+  for (const row of edges) addRow(runs, row, "relations");
+  for (const row of [...current, ...history]) addRow(runs, row, "attributes");
 
-  return [...byRun.values()].sort(
-    (first, second) =>
-      (second.receivedAt ?? 0) - (first.receivedAt ?? 0) ||
-      first.tool.localeCompare(second.tool) ||
-      first.run.localeCompare(second.run),
-  );
+  return runs.toList();
 }
 
-interface MutableRun {
-  tool: string;
-  run: string;
-  relations: number;
-  attributes: number;
-  receivedAt?: number;
-}
-
-// Adds one row of counts to the run it belongs to, creating the run the first time it appears.
-function add(
-  byRun: Map<string, MutableRun>,
-  row: Record<string, unknown>,
-  kind: "relations" | "attributes",
-): void {
-  const tool = row["tool"] as string;
-  const run = row["run"] as string;
-  const key = JSON.stringify([tool, run]);
-
-  const summary = byRun.get(key) ?? { tool, run, relations: 0, attributes: 0 };
-  summary[kind] += row["total"] as number;
-
+// Adds one row of counts (`tool`, `run`, `total`, `receivedAt`) to the run it belongs to.
+function addRow(runs: RunSummaries, row: Record<string, unknown>, kind: RunItemKind): void {
   const receivedAt = row["receivedAt"] as number | null;
-  if (receivedAt !== null) {
-    summary.receivedAt =
-      summary.receivedAt === undefined ? receivedAt : Math.min(summary.receivedAt, receivedAt);
-  }
 
-  byRun.set(key, summary);
+  runs.add(
+    { tool: row["tool"] as string, run: row["run"] as string },
+    kind,
+    row["total"] as number,
+    receivedAt ?? undefined,
+  );
 }
