@@ -3,6 +3,7 @@ import { buildAttributeWrites } from "./build-attribute-writes.ts";
 import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
+import { getEntityDegree } from "./get-entity-degree.ts";
 import { findEntity } from "./find-entity.ts";
 import { graphTotals } from "./graph-totals.ts";
 import { listEntities } from "./list-entities.ts";
@@ -52,5 +53,7 @@ export async function createMemgraphGraphRepository(
     listEntities: (query) => listEntities(connection, query),
 
     graphTotals: () => graphTotals(connection),
+
+    getEntityDegree: (entity) => getEntityDegree(connection, entity),
   };
 }

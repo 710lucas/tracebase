@@ -1,6 +1,7 @@
 import type { Attribute } from "../../domain/attribute/index.ts";
 import type { Entity } from "../../domain/entity/index.ts";
 import type { Relation } from "../../domain/relation/index.ts";
+import type { EntityDegree } from "./entity-degree.ts";
 import type {
   EntityListQuery,
   EntityPage,
@@ -40,6 +41,10 @@ export interface EntityFindings {
 //
 // The other four read the graph as a whole (see `graph-overview.ts`): the runs that were imported, the
 // entity types with their counts, a page of the entities of one type, and the size of the graph.
+//
+// `getEntityDegree` is the first of the questions an AI asks about one entity (see `entity-degree.ts`):
+// how many relations it has, in each direction and by the type of the neighbour. Like `findEntity`, it
+// answers `null` when nothing mentions the entity; an entity that only has attributes has degree zero.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -47,4 +52,5 @@ export interface GraphRepository {
   listEntityTypes(): Promise<EntityTypeCount[]>;
   listEntities(query: EntityListQuery): Promise<EntityPage>;
   graphTotals(): Promise<GraphTotals>;
+  getEntityDegree(entity: Entity): Promise<EntityDegree | null>;
 }

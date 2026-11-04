@@ -1,7 +1,10 @@
 import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
-import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
+import {
+  createEntityDegree,
+  type GraphRepository,
+} from "../../core/ports/graph-repository/index.ts";
 import {
   collectEntities,
   countEntityTypes,
@@ -29,7 +32,7 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
   const relations: Relation[] = [];
   const attributes: Attribute[] = [];
 
-  return {
+  const repository: InMemoryGraphRepository = {
     relations,
     attributes,
     save: async (batch) => {
@@ -64,7 +67,28 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
 
     graphTotals: async () =>
       totalsOf(collectEntities(relations, attributes), relations, attributes),
+
+    // The relations of the entity are the ones `findEntity` gathers; each counts once for the type of
+    // the entity at its other end, in the direction it points. A relation from the entity to itself is
+    // both outgoing and incoming.
+    getEntityDegree: async (entity) => {
+      const findings = await repository.findEntity(entity);
+      if (findings === null) {
+        return null;
+      }
+
+      const outgoing = findings.relations
+        .filter((relation) => isSameEntity(relation.source, entity))
+        .map((relation) => ({ type: relation.target.type, count: 1 }));
+      const incoming = findings.relations
+        .filter((relation) => isSameEntity(relation.target, entity))
+        .map((relation) => ({ type: relation.source.type, count: 1 }));
+
+      return createEntityDegree(entity, outgoing, incoming);
+    },
   };
+
+  return repository;
 }
 
 // Identity of an entity: its type and its value, compared exactly (case matters).
