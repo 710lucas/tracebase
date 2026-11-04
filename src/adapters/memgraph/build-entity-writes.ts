@@ -2,6 +2,9 @@ import type { Entity } from "../../core/domain/entity/index.ts";
 import type { CypherStatement } from "./memgraph-connection.ts";
 import { toEntityLabel } from "./to-cypher-label.ts";
 
+// Finds each entity of the rows by type and value, or creates it.
+const MERGE_ENTITIES = "UNWIND $rows AS row MERGE (n:Entity {type: row.type, value: row.value})";
+
 // The queries that make sure every entity of an import exists. They must run before the queries that
 // link or describe those entities.
 //
@@ -27,9 +30,7 @@ export function buildEntityWrites(entities: readonly Entity[]): CypherStatement[
   }
 
   return [...rowsByLabel].map(([label, rows]) => ({
-    query:
-      "UNWIND $rows AS row MERGE (n:Entity {type: row.type, value: row.value})" +
-      (label === null ? "" : ` SET n:${label}`),
+    query: MERGE_ENTITIES + (label === null ? "" : ` SET n:${label}`),
     parameters: { rows },
   }));
 }

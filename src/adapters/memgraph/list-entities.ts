@@ -10,6 +10,8 @@ import type { MemgraphConnection } from "./memgraph-connection.ts";
 // exists. The entities are rebuilt through `createEntity`, like everything that leaves the adapter.
 const MATCHING = `MATCH (n:Entity {type: $type})
    WHERE $search IS NULL OR toLower(n.value) CONTAINS toLower($search)`;
+const COUNT_MATCHING = `${MATCHING} RETURN count(n) AS total`;
+const PAGE_OF_MATCHING = `${MATCHING} RETURN n.value AS value ORDER BY value SKIP toInteger($offset) LIMIT toInteger($limit)`;
 
 export async function listEntities(
   connection: MemgraphConnection,
@@ -17,12 +19,13 @@ export async function listEntities(
 ): Promise<EntityPage> {
   const filter = { type: query.type, search: query.search ?? null };
 
-  const [totalRow] = await connection.run(`${MATCHING} RETURN count(n) AS total`, filter);
+  const [totalRow] = await connection.run(COUNT_MATCHING, filter);
 
-  const rows = await connection.run(
-    `${MATCHING} RETURN n.value AS value ORDER BY value SKIP toInteger($offset) LIMIT toInteger($limit)`,
-    { ...filter, offset: query.offset, limit: query.limit },
-  );
+  const rows = await connection.run(PAGE_OF_MATCHING, {
+    ...filter,
+    offset: query.offset,
+    limit: query.limit,
+  });
 
   return {
     total: (totalRow?.["total"] ?? 0) as number,

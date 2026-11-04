@@ -25,14 +25,21 @@ export function buildRelationWrites(relations: readonly Relation[]): CypherState
   }
 
   return [...rowsByLabel].map(([label, rows]) => ({
-    query:
-      "UNWIND $rows AS row " +
-      "MATCH (source:Entity {type: row.sourceType, value: row.sourceValue}) " +
-      "MATCH (target:Entity {type: row.targetType, value: row.targetValue}) " +
-      `MERGE (source)-[edge:${label} {key: row.key}]->(target) ` +
-      "ON CREATE SET edge += row.properties",
+    query: mergeEdgesQuery(label),
     parameters: { rows },
   }));
+}
+
+// Finds the edge of each row by its key between its two ends, or creates it, and sets its properties only
+// when it was created. The label is the only part that is not a parameter: it comes from `toEdgeLabel`.
+function mergeEdgesQuery(label: string): string {
+  return (
+    "UNWIND $rows AS row " +
+    "MATCH (source:Entity {type: row.sourceType, value: row.sourceValue}) " +
+    "MATCH (target:Entity {type: row.targetType, value: row.targetValue}) " +
+    `MERGE (source)-[edge:${label} {key: row.key}]->(target) ` +
+    "ON CREATE SET edge += row.properties"
+  );
 }
 
 interface EdgeRow {

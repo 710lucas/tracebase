@@ -11,6 +11,14 @@ export interface GraphRepositoryConfig {
   memgraphPassword?: string;
 }
 
+// The repository together with what it takes to let go of it: `close` ends the connection to Memgraph (it
+// does nothing for the memory repository). The port itself has no `close`, because what is behind it is
+// the business of whoever created it, which is the composition root.
+export interface OpenGraphRepository {
+  repository: GraphRepository;
+  close(): Promise<void>;
+}
+
 // Chooses where the graph is kept: in Memgraph when an address is given, in memory when it is not.
 //
 // When an address IS given and the database does not answer, this fails (the error says where it tried
@@ -20,10 +28,10 @@ export interface GraphRepositoryConfig {
 // and a misconfigured credential would go unnoticed.
 export async function createGraphRepository(
   config: GraphRepositoryConfig,
-): Promise<GraphRepository> {
+): Promise<OpenGraphRepository> {
   const url = givenOrUndefined(config.memgraphUrl);
   if (url === undefined) {
-    return createInMemoryGraphRepository();
+    return { repository: createInMemoryGraphRepository(), close: async () => {} };
   }
 
   const user = givenOrUndefined(config.memgraphUser);
@@ -38,7 +46,10 @@ export async function createGraphRepository(
     ...(password !== undefined && { password }),
   });
 
-  return createMemgraphGraphRepository(connection);
+  return {
+    repository: await createMemgraphGraphRepository(connection),
+    close: () => connection.close(),
+  };
 }
 
 function givenOrUndefined(text: string | undefined): string | undefined {

@@ -16,7 +16,7 @@ const memgraphUrl = process.env["MEMGRAPH_URL"];
 const webRoot = fileURLToPath(new URL("../web/dist", import.meta.url));
 const webIsBuilt = existsSync(webRoot);
 
-const graphRepository = await createGraphRepository({
+const { repository: graphRepository, close: closeGraphRepository } = await createGraphRepository({
   ...(memgraphUrl !== undefined && { memgraphUrl }),
   ...(process.env["MEMGRAPH_USER"] !== undefined && { memgraphUser: process.env["MEMGRAPH_USER"] }),
   ...(process.env["MEMGRAPH_PASSWORD"] !== undefined && {
@@ -30,7 +30,7 @@ const app = createApp({
   ...(webIsBuilt && { webRoot }),
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
   console.log(
     memgraphUrl
@@ -43,3 +43,25 @@ app.listen(port, () => {
       : "front end not built (run `npm run web:build` to serve it)",
   );
 });
+
+// Ctrl+C or `docker stop`: stop taking requests, let the ones in progress finish (an import is one
+// transaction, so it either finishes or leaves nothing), close the connection to Memgraph and leave. The
+// handler runs once: a second signal finds no handler and ends the process at once, for when waiting is
+// not wanted.
+function shutDown(signal: string): void {
+  console.log(`${signal} received, shutting down`);
+
+  server.close((serverError) => {
+    closeGraphRepository()
+      .catch((error: unknown) => {
+        console.error(`could not close the graph repository: ${(error as Error).message}`);
+        process.exitCode = 1;
+      })
+      .finally(() => process.exit(serverError === undefined ? process.exitCode : 1));
+  });
+  // A browser keeps its connection open between requests, which would hold `close` back for good.
+  server.closeIdleConnections();
+}
+
+process.once("SIGINT", () => shutDown("SIGINT"));
+process.once("SIGTERM", () => shutDown("SIGTERM"));
