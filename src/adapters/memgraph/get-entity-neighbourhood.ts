@@ -33,16 +33,18 @@ function reachedEntitiesQuery(hops: number): string {
   );
 }
 
-// The edges that leave each of the given entities towards another `:Entity`. Every edge between two of
-// them leaves exactly one of them, so it comes once; the ones that go to an entity left out come too and
-// are dropped by `createEntityNeighbourhood`.
-const EDGES_FROM_ENTITIES =
+// The edges that touch each of the given entities (the ones of one page), in either direction, towards
+// another `:Entity`. An edge between two of them is read from both sides and one that starts and ends on
+// the same entity twice, so the repeats are dropped by key; the ones that go to an entity of another page
+// come too and `createEntityNeighbourhood` keeps or drops them by the rule of the pages.
+const EDGES_TOUCHING_ENTITIES =
   "UNWIND $keys AS key " +
-  "MATCH (source:Entity {type: key.type, value: key.value})-[edge]->(target:Entity) " +
-  "RETURN properties(edge) AS properties, source.type AS sourceType, source.value AS sourceValue, " +
-  "target.type AS targetType, target.value AS targetValue";
+  "MATCH (n:Entity {type: key.type, value: key.value})-[edge]-(:Entity) " +
+  "RETURN properties(edge) AS properties, " +
+  "startNode(edge).type AS sourceType, startNode(edge).value AS sourceValue, " +
+  "endNode(edge).type AS targetType, endNode(edge).value AS targetValue";
 
-// The current attributes of each of the given entities, from the `attributes` map of its node.
+// The current attributes of each of the given entities (the ones of the page), from the `attributes` map of its node.
 const ATTRIBUTES_OF_ENTITIES =
   "UNWIND $keys AS key " +
   "MATCH (n:Entity {type: key.type, value: key.value}) " +
@@ -61,8 +63,9 @@ interface AttributesRow {
 }
 
 // The neighbourhood of one entity (see `EntityNeighbourhood`), or `null` when its node does not exist.
-// Three queries: who is near, the edges of those that are kept, their attributes. The time limit is for
-// the whole answer, not for each query: each query gets what is left of it, and running out at any
+// Three queries: who is near (as far as the end of the page, in the order of `createEntityNeighbourhood`),
+// the edges of the entities of the page, their attributes. The time limit is for the whole answer, not
+// for each query: each query gets what is left of it, and running out at any
 // point fails with a `QueryTimeoutError` that names the whole limit.
 export async function getEntityNeighbourhood(
   connection: MemgraphConnection,
@@ -70,10 +73,6 @@ export async function getEntityNeighbourhood(
   options: QueryOptions & NeighbourhoodOptions = {},
 ): Promise<EntityNeighbourhood | null> {
   const { hops, maxEntities, offset } = resolveNeighbourhoodOptions(options);
-  // Reading by pages is not built here yet; answering the first page for any `offset` would be wrong.
-  if (offset > 0) {
-    throw new Error("offset is not built in Memgraph yet");
-  }
   const timeoutMs = options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
   const startedAt = Date.now();
 
@@ -88,12 +87,13 @@ export async function getEntityNeighbourhood(
     }
   };
 
-  // The origin takes one place, so at most `maxEntities` others are asked for: one more than fits is
-  // enough to know the answer is cut.
+  // The origin takes the first place, so the others asked for are the ones before the end of the page
+  // (`offset + maxEntities`) and one more is the origin's place: with that, one entity past the page is
+  // known to exist and the answer can say it is cut.
   const rows = (await run(reachedEntitiesQuery(hops), {
     type: origin.type,
     value: origin.value,
-    limit: maxEntities,
+    limit: offset + maxEntities,
   })) as unknown as ReachedRow[];
 
   if (rows.length === 0) return null;
@@ -106,13 +106,14 @@ export async function getEntityNeighbourhood(
         : [{ entity: createEntity(row.type, row.value), distance: row.distance }],
     ),
   ];
-  // Only the entities that will be returned need their edges and attributes.
-  const keys = reached.slice(0, maxEntities).map(({ entity }) => ({
+  // Only the entities of the page need their edges and attributes. `reached` is already in the order of
+  // the answer, the origin first and then the rows, which come sorted.
+  const keys = reached.slice(offset, offset + maxEntities).map(({ entity }) => ({
     type: entity.type,
     value: entity.value,
   }));
 
-  const edges = (await run(EDGES_FROM_ENTITIES, { keys })) as unknown as EdgeRow[];
+  const edges = (await run(EDGES_TOUCHING_ENTITIES, { keys })) as unknown as EdgeRow[];
   const attributeRows = (await run(ATTRIBUTES_OF_ENTITIES, { keys })) as unknown as AttributesRow[];
 
   return createEntityNeighbourhood({
@@ -121,7 +122,9 @@ export async function getEntityNeighbourhood(
     maxEntities,
     offset,
     reached,
-    relations: edges.map(edgeToRelation),
+    relations: [...new Map(edges.map((edge) => [edge.properties.key, edge])).values()].map(
+      edgeToRelation,
+    ),
     attributes: attributeRows.flatMap((row) =>
       currentAttributesOf(createEntity(row.type, row.value), row.current),
     ),

@@ -6,6 +6,7 @@ import {
 } from "../../../src/adapters/memgraph/memgraph-connection.ts";
 import { createMemgraphGraphRepository } from "../../../src/adapters/memgraph/memgraph-graph-repository.ts";
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
+import { testNeighbourhoodPagesContract } from "../../core/ports/graph-repository/neighbourhood-pages-contract.ts";
 import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
 // The Memgraph repository against the port's contract. Needs a running Memgraph; skipped when none
@@ -51,3 +52,4 @@ const contractOptions = {
 
 testGraphRepositoryContract(contractOptions);
 testNeighbourhoodContract(contractOptions);
+testNeighbourhoodPagesContract(contractOptions);

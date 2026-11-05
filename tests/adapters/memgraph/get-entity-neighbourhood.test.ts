@@ -99,12 +99,44 @@ test("refuses hops and maxEntities that make no sense before asking anything", a
   assert.equal(calls.length, 0);
 });
 
-test("refuses to read a page after the first, asking nothing, until the database reads pages", async () => {
-  const { connection, calls } = fakeConnection(() => []);
+test("asks for the entities up to the end of the page and only the page's edges and attributes", async () => {
+  const rows = ["a", "b", "c", "d"].map((value, index) => ({
+    type: "HOST",
+    value,
+    distance: 1 + Math.floor(index / 2),
+  }));
+  const parameters: Record<string, unknown>[] = [];
+  const connection = {
+    run: async (_query: string, given?: Record<string, unknown>) => {
+      parameters.push(given ?? {});
+      return parameters.length === 1 ? rows : [];
+    },
+  } as unknown as MemgraphConnection;
+
+  const neighbourhood = await getEntityNeighbourhood(connection, origin, {
+    offset: 2,
+    maxEntities: 2,
+  });
+
+  // The origin is the position 0, so the entities of this page (positions 2 and 3) are b and c.
+  assert.equal(parameters[0]?.["limit"], 4);
+  assert.deepEqual(parameters[1]?.["keys"], [
+    { type: "HOST", value: "b" },
+    { type: "HOST", value: "c" },
+  ]);
+  assert.deepEqual(parameters[2], parameters[1]);
+  assert.deepEqual(
+    neighbourhood?.entities.map(({ entity }) => entity.value),
+    ["b", "c"],
+  );
+  assert.equal(neighbourhood?.nextOffset, 4);
+});
+
+test("an offset past the end of the neighbourhood is refused", async () => {
+  const { connection } = fakeConnection((call) => (call === 1 ? alone : []));
 
   await assert.rejects(
     getEntityNeighbourhood(connection, origin, { offset: 1 }),
-    /offset is not built in Memgraph yet/,
+    InvalidNeighbourhoodOptionsError,
   );
-  assert.equal(calls.length, 0);
 });
