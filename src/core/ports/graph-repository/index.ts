@@ -27,6 +27,19 @@ export type {
   ResolvedNeighbourhoodOptions,
 } from "./neighbourhood-options.ts";
 export { InvalidNeighbourhoodOptionsError } from "./invalid-neighbourhood-options-error.ts";
+export { chooseFixedPath, createShortestPath } from "./shortest-path.ts";
+export type {
+  FixedPathSearch,
+  PathStep,
+  ShortestPath,
+  ShortestPathParts,
+} from "./shortest-path.ts";
+export {
+  DEFAULT_SHORTEST_PATH_MAX_HOPS,
+  resolveShortestPathOptions,
+} from "./shortest-path-options.ts";
+export type { ResolvedShortestPathOptions, ShortestPathOptions } from "./shortest-path-options.ts";
+export { InvalidShortestPathOptionsError } from "./invalid-shortest-path-options-error.ts";
 export { createRunSummaries } from "./run-summaries.ts";
 export type { RunItemKind, RunSummaries } from "./run-summaries.ts";
 export type {

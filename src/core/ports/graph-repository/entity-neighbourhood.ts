@@ -1,5 +1,5 @@
 import type { Attribute } from "../../domain/attribute/index.ts";
-import { entityKey, type Entity } from "../../domain/entity/index.ts";
+import { compareEntities, entityKey, type Entity } from "../../domain/entity/index.ts";
 import type { Relation } from "../../domain/relation/index.ts";
 import { InvalidNeighbourhoodOptionsError } from "./invalid-neighbourhood-options-error.ts";
 
@@ -65,9 +65,7 @@ export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeig
 
   const ordered = [...reached].sort(
     (first, second) =>
-      first.distance - second.distance ||
-      compareText(first.entity.type, second.entity.type) ||
-      compareText(first.entity.value, second.entity.value),
+      first.distance - second.distance || compareEntities(first.entity, second.entity),
   );
   if (ordered.length <= offset) {
     throw new InvalidNeighbourhoodOptionsError(
@@ -111,12 +109,4 @@ export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeig
     truncated,
     ...(truncated && { nextOffset: pageEnd }),
   };
-}
-
-// Plain character-by-character order, not the language-aware order of `localeCompare`: a database sorts
-// text this way, so a repository that lets its database pick the nearest entities cuts at the same place
-// as this function does.
-function compareText(first: string, second: string): number {
-  if (first === second) return 0;
-  return first < second ? -1 : 1;
 }
