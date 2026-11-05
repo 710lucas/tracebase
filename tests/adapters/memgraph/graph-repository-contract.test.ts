@@ -1,5 +1,4 @@
-import { after, beforeEach, test } from "node:test";
-import assert from "node:assert/strict";
+import { after, beforeEach } from "node:test";
 import {
   connectToMemgraph,
   DEFAULT_MEMGRAPH_URL,
@@ -9,6 +8,7 @@ import { createMemgraphGraphRepository } from "../../../src/adapters/memgraph/me
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
 import { testNeighbourhoodPagesContract } from "../../core/ports/graph-repository/neighbourhood-pages-contract.ts";
 import { testShortestPathContract } from "../../core/ports/graph-repository/shortest-path-contract.ts";
+import { testSearchContract } from "../../core/ports/graph-repository/search-contract.ts";
 import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
 // The Memgraph repository against the port's contract. Needs a running Memgraph; skipped when none
@@ -56,15 +56,4 @@ testGraphRepositoryContract(contractOptions);
 testNeighbourhoodContract(contractOptions);
 testNeighbourhoodPagesContract(contractOptions);
 testShortestPathContract(contractOptions);
-
-// Until Memgraph answers the search, the repository must say so instead of answering wrongly. This test goes
-// away when `testSearchContract` runs here.
-test(
-  "the search is not built in Memgraph yet",
-  { skip: connection === null ? "no Memgraph is running" : false },
-  async () => {
-    const repository = await contractOptions.createRepository();
-
-    await assert.rejects(repository.searchEntities("anything"), /not built in Memgraph yet/);
-  },
-);
+testSearchContract(contractOptions);
