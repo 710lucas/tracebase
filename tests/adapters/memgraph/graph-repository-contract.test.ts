@@ -1,6 +1,4 @@
-import { after, beforeEach, test } from "node:test";
-import assert from "node:assert/strict";
-import { createEntity } from "../../../src/core/domain/entity/index.ts";
+import { after, beforeEach } from "node:test";
 import {
   connectToMemgraph,
   DEFAULT_MEMGRAPH_URL,
@@ -9,6 +7,7 @@ import {
 import { createMemgraphGraphRepository } from "../../../src/adapters/memgraph/memgraph-graph-repository.ts";
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
 import { testNeighbourhoodPagesContract } from "../../core/ports/graph-repository/neighbourhood-pages-contract.ts";
+import { testShortestPathContract } from "../../core/ports/graph-repository/shortest-path-contract.ts";
 import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
 // The Memgraph repository against the port's contract. Needs a running Memgraph; skipped when none
@@ -55,18 +54,4 @@ const contractOptions = {
 testGraphRepositoryContract(contractOptions);
 testNeighbourhoodContract(contractOptions);
 testNeighbourhoodPagesContract(contractOptions);
-
-// Until Memgraph answers the shortest path, the repository must say so instead of answering wrongly. This
-// test goes away when `testShortestPathContract` runs here.
-test(
-  "the shortest path is not built in Memgraph yet",
-  { skip: connection === null ? "no Memgraph is running" : false },
-  async () => {
-    const repository = await contractOptions.createRepository();
-
-    await assert.rejects(
-      repository.getShortestPath(createEntity("HOST", "x"), createEntity("HOST", "y")),
-      /not built in Memgraph yet/,
-    );
-  },
-);
+testShortestPathContract(contractOptions);

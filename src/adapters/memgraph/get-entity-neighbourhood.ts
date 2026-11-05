@@ -2,8 +2,6 @@ import type { Entity } from "../../core/domain/entity/index.ts";
 import { createEntity } from "../../core/domain/entity/index.ts";
 import {
   createEntityNeighbourhood,
-  DEFAULT_QUERY_TIMEOUT_MS,
-  QueryTimeoutError,
   resolveNeighbourhoodOptions,
   type EntityNeighbourhood,
   type NeighbourhoodOptions,
@@ -14,6 +12,7 @@ import type { AttributeRecord } from "./attribute-record.ts";
 import { currentAttributesOf } from "./current-attributes.ts";
 import { edgeToRelation, type EdgeRow } from "./edge-to-relation.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
+import { withinTimeLimit } from "./within-time-limit.ts";
 
 // The entities within `hops` relations of the origin, nearest first, as far as `LIMIT`. `*BFS` spreads
 // one edge at a time and reaches each node once, by its shortest path, so the work grows with the size of
@@ -65,27 +64,14 @@ interface AttributesRow {
 // The neighbourhood of one entity (see `EntityNeighbourhood`), or `null` when its node does not exist.
 // Three queries: who is near (as far as the end of the page, in the order of `createEntityNeighbourhood`),
 // the edges of the entities of the page, their attributes. The time limit is for the whole answer, not
-// for each query: each query gets what is left of it, and running out at any
-// point fails with a `QueryTimeoutError` that names the whole limit.
+// for each query (`withinTimeLimit`).
 export async function getEntityNeighbourhood(
   connection: MemgraphConnection,
   origin: Entity,
   options: QueryOptions & NeighbourhoodOptions = {},
 ): Promise<EntityNeighbourhood | null> {
   const { hops, maxEntities, offset } = resolveNeighbourhoodOptions(options);
-  const timeoutMs = options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
-  const startedAt = Date.now();
-
-  const run = async (query: string, parameters: Record<string, unknown>) => {
-    const timeLeft = timeoutMs - (Date.now() - startedAt);
-    if (timeLeft < 1) throw new QueryTimeoutError(timeoutMs);
-
-    try {
-      return await connection.run(query, parameters, { timeoutMs: timeLeft });
-    } catch (error) {
-      throw error instanceof QueryTimeoutError ? new QueryTimeoutError(timeoutMs) : error;
-    }
-  };
+  const run = withinTimeLimit(connection, options);
 
   // The origin takes the first place, so the others asked for are the ones before the end of the page
   // (`offset + maxEntities`) and one more is the origin's place: with that, one entity past the page is

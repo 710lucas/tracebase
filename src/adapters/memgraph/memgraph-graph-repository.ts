@@ -4,6 +4,7 @@ import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
 import { getEntityDegree } from "./get-entity-degree.ts";
+import { getShortestPath } from "./get-shortest-path.ts";
 import { getEntityNeighbourhood } from "./get-entity-neighbourhood.ts";
 import { findEntity } from "./find-entity.ts";
 import { graphTotals } from "./graph-totals.ts";
@@ -60,7 +61,6 @@ export async function createMemgraphGraphRepository(
     getEntityNeighbourhood: (entity, options) =>
       getEntityNeighbourhood(connection, entity, options),
 
-    getShortestPath: () =>
-      Promise.reject(new Error("getShortestPath is not built in Memgraph yet")),
+    getShortestPath: (from, to, options) => getShortestPath(connection, from, to, options),
   };
 }
