@@ -3,3 +3,4 @@
 export type { Entity } from "./entity.ts";
 export { createEntity } from "./create-entity.ts";
 export { InvalidEntityError } from "./invalid-entity-error.ts";
+export { entityKey } from "./entity-key.ts";

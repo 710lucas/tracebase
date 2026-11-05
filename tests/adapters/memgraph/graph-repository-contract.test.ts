@@ -1,4 +1,6 @@
-import { after, beforeEach } from "node:test";
+import { after, beforeEach, test } from "node:test";
+import assert from "node:assert/strict";
+import { createEntity } from "../../../src/core/domain/entity/index.ts";
 import {
   connectToMemgraph,
   DEFAULT_MEMGRAPH_URL,
@@ -47,3 +49,18 @@ testGraphRepositoryContract({
   tool: `${PREFIX}tool`,
   createRepository: () => createMemgraphGraphRepository(connection as MemgraphConnection),
 });
+
+// Until slice 6c-2 builds the neighbourhood in Memgraph, the repository must say so instead of
+// answering wrongly. This test goes away when `testNeighbourhoodContract` runs here.
+test(
+  "the neighbourhood is not built in Memgraph yet",
+  { skip: connection === null ? "no Memgraph is running" : false },
+  async () => {
+    const repository = await createMemgraphGraphRepository(connection as MemgraphConnection);
+
+    await assert.rejects(
+      repository.getEntityNeighbourhood(createEntity("HOST", "x")),
+      /not built in Memgraph yet/,
+    );
+  },
+);

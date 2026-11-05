@@ -55,5 +55,9 @@ export async function createMemgraphGraphRepository(
     graphTotals: () => graphTotals(connection),
 
     getEntityDegree: (entity, options) => getEntityDegree(connection, entity, options),
+
+    // Slice 6c-2 builds this; until then it says so instead of answering wrongly.
+    getEntityNeighbourhood: () =>
+      Promise.reject(new Error("getEntityNeighbourhood is not built in Memgraph yet (slice 6c-2)")),
   };
 }

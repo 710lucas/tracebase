@@ -3,8 +3,10 @@ import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
 import {
   createEntityDegree,
+  resolveNeighbourhoodOptions,
   type GraphRepository,
 } from "../../core/ports/graph-repository/index.ts";
+import { findNeighbourhood } from "./find-neighbourhood.ts";
 import {
   collectEntities,
   countEntityTypes,
@@ -87,6 +89,12 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
 
       return createEntityDegree(entity, outgoing, incoming);
     },
+
+    // Like the degree, it takes the time limit of `QueryOptions` and ignores it: the search over two
+    // lists in memory ends in milliseconds. `hops` and `maxEntities` are checked and defaulted by the
+    // port's own rule.
+    getEntityNeighbourhood: async (entity, options) =>
+      findNeighbourhood(relations, attributes, entity, resolveNeighbourhoodOptions(options)),
   };
 
   return repository;

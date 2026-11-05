@@ -2,6 +2,8 @@ import type { Attribute } from "../../domain/attribute/index.ts";
 import type { Entity } from "../../domain/entity/index.ts";
 import type { Relation } from "../../domain/relation/index.ts";
 import type { EntityDegree } from "./entity-degree.ts";
+import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
+import type { NeighbourhoodOptions } from "./neighbourhood-options.ts";
 import type {
   EntityListQuery,
   EntityPage,
@@ -57,6 +59,12 @@ export interface EntityFindings {
 // answers `null` when nothing mentions the entity; an entity that only has attributes has degree zero.
 // It takes `QueryOptions`; a repository whose reads cannot run long, such as the in-memory one, may
 // ignore the time limit.
+//
+// `getEntityNeighbourhood` is the second one (see `entity-neighbourhood.ts`): the entities within some
+// relations of one entity, with the relations between them and their current attributes. Same `null`
+// rule. `hops` and `maxEntities` have defaults and no upper limit; when more entities exist than
+// `maxEntities` the answer is cut and says so (`truncated`). Invalid hops or maxEntities fail with
+// `InvalidNeighbourhoodOptionsError`.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -65,4 +73,8 @@ export interface GraphRepository {
   listEntities(query: EntityListQuery): Promise<EntityPage>;
   graphTotals(): Promise<GraphTotals>;
   getEntityDegree(entity: Entity, options?: QueryOptions): Promise<EntityDegree | null>;
+  getEntityNeighbourhood(
+    entity: Entity,
+    options?: QueryOptions & NeighbourhoodOptions,
+  ): Promise<EntityNeighbourhood | null>;
 }
