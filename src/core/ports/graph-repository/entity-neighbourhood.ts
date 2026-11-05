@@ -1,6 +1,7 @@
 import type { Attribute } from "../../domain/attribute/index.ts";
 import { entityKey, type Entity } from "../../domain/entity/index.ts";
 import type { Relation } from "../../domain/relation/index.ts";
+import { InvalidNeighbourhoodOptionsError } from "./invalid-neighbourhood-options-error.ts";
 
 // An entity reached by the neighbourhood: how many relations away from the origin it is (the origin
 // itself is at 0; the direction of a relation is ignored) and its current attributes.
@@ -10,21 +11,30 @@ export interface NeighbourhoodEntity {
   readonly attributes: readonly Attribute[];
 }
 
-// Everything within `hops` relations of the `origin`, up to `maxEntities` entities.
+// Everything within `hops` relations of the `origin`, one page of it: the entities in the positions
+// `offset` to `offset + maxEntities` of the list ordered by distance, then by type, then by value. The
+// origin is the position 0, so it is only in the first page. The order never changes, so asking page after
+// page gives every entity once, and a bigger `maxEntities` starts with the same entities.
 //
-// `entities` is ordered by distance, then by type, then by value, and starts with the origin. When more
-// entities were reached than `maxEntities` allows, the nearest ones are the ones kept and `truncated` is
-// true: the caller can ask again with a bigger `maxEntities` (and more time), and because the order never
-// changes the bigger answer starts with this one. `relations` holds only the relations whose two ends are
-// both in `entities`, so the answer is closed in itself; a relation to an entity left out is not shown.
-// The order of `relations` is not defined. `attributes` are the current ones, without the history.
+// `truncated` is true when more entities exist after this page, and then `nextOffset` is the `offset` of the
+// next page. An `offset` past the end of the list is refused, so an empty page is never an answer.
+//
+// `relations`: a relation belongs to the page of the entity that comes later in the order. This page holds
+// the relations whose two ends are both among the entities delivered up to the end of this page and that
+// touch at least one entity of this page, so across the pages every relation comes exactly once and
+// whoever has the earlier pages has both ends of each relation. A relation to an entity after this page
+// is not shown yet. With `offset` 0 it is the relations between the entities returned. Each observation
+// of a run is a relation of its own and the order of `relations` is not defined. `attributes` are the
+// current ones, without the history.
 export interface EntityNeighbourhood {
   readonly origin: Entity;
   readonly hops: number;
   readonly maxEntities: number;
+  readonly offset: number;
   readonly entities: readonly NeighbourhoodEntity[];
   readonly relations: readonly Relation[];
   readonly truncated: boolean;
+  readonly nextOffset?: number;
 }
 
 // An entity found by the search and how far it is from the origin.
@@ -37,11 +47,12 @@ export interface NeighbourhoodParts {
   readonly origin: Entity;
   readonly hops: number;
   readonly maxEntities: number;
+  readonly offset: number;
   // Every entity reached within `hops`, each once, in any order (a repository that already knows only
-  // the first `maxEntities + 1` matter may bring just those).
+  // the first `offset + maxEntities + 1` matter may bring just those).
   readonly reached: readonly ReachedEntity[];
-  // Relations and current attributes that touch the reached entities; the ones that belong to entities
-  // that end up left out are dropped here.
+  // Relations and current attributes that touch the reached entities; the ones that do not belong to
+  // this page are dropped here.
   readonly relations: readonly Relation[];
   readonly attributes: readonly Attribute[];
 }
@@ -50,17 +61,23 @@ export interface NeighbourhoodParts {
 // repository found. It is the one place that knows the order, the cut and which relations stay, so every
 // repository (memory, Memgraph) answers in the same way.
 export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeighbourhood {
-  const { origin, hops, maxEntities, reached } = parts;
+  const { origin, hops, maxEntities, offset, reached } = parts;
 
-  const kept = [...reached]
-    .sort(
-      (first, second) =>
-        first.distance - second.distance ||
-        compareText(first.entity.type, second.entity.type) ||
-        compareText(first.entity.value, second.entity.value),
-    )
-    .slice(0, maxEntities);
-  const keptKeys = new Set(kept.map(({ entity }) => entityKey(entity)));
+  const ordered = [...reached].sort(
+    (first, second) =>
+      first.distance - second.distance ||
+      compareText(first.entity.type, second.entity.type) ||
+      compareText(first.entity.value, second.entity.value),
+  );
+  if (ordered.length <= offset) {
+    throw new InvalidNeighbourhoodOptionsError(
+      `offset ${offset} is past the end: the neighbourhood has ${ordered.length} entities`,
+    );
+  }
+
+  const pageEnd = offset + maxEntities;
+  const rankByKey = new Map(ordered.map(({ entity }, rank) => [entityKey(entity), rank]));
+  const page = ordered.slice(offset, pageEnd);
 
   const attributesByEntity = new Map<string, Attribute[]>();
   for (const attribute of parts.attributes) {
@@ -68,20 +85,31 @@ export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeig
     attributesByEntity.set(key, [...(attributesByEntity.get(key) ?? []), attribute]);
   }
 
+  const truncated = ordered.length > pageEnd;
+
   return {
     origin,
     hops,
     maxEntities,
-    entities: kept.map(({ entity, distance }) => ({
+    offset,
+    entities: page.map(({ entity, distance }) => ({
       entity,
       distance,
       attributes: attributesByEntity.get(entityKey(entity)) ?? [],
     })),
-    relations: parts.relations.filter(
-      (relation) =>
-        keptKeys.has(entityKey(relation.source)) && keptKeys.has(entityKey(relation.target)),
-    ),
-    truncated: reached.length > maxEntities,
+    relations: parts.relations.filter((relation) => {
+      const sourceRank = rankByKey.get(entityKey(relation.source));
+      const targetRank = rankByKey.get(entityKey(relation.target));
+      return (
+        sourceRank !== undefined &&
+        targetRank !== undefined &&
+        sourceRank < pageEnd &&
+        targetRank < pageEnd &&
+        Math.max(sourceRank, targetRank) >= offset
+      );
+    }),
+    truncated,
+    ...(truncated && { nextOffset: pageEnd }),
   };
 }
 

@@ -16,7 +16,7 @@ export function findNeighbourhood(
   relations: readonly Relation[],
   attributes: readonly Attribute[],
   origin: Entity,
-  { hops, maxEntities }: ResolvedNeighbourhoodOptions,
+  { hops, maxEntities, offset }: ResolvedNeighbourhoodOptions,
 ): EntityNeighbourhood | null {
   const neighbours = neighboursOf(relations);
   const originKey = entityKey(origin);
@@ -48,6 +48,7 @@ export function findNeighbourhood(
     origin,
     hops,
     maxEntities,
+    offset,
     reached: [...reached.values()],
     relations,
     attributes,

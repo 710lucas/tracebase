@@ -110,10 +110,12 @@ test(
   },
 );
 
-// Like the repository tests, these only create entities whose value starts with `__test__`.
+// These create entities whose value starts with `__test_tx__`, which is not a prefix the other test files
+// delete (`__test__`, `__test_overview__`, `__test_contract__`), so they never touch each other's data when
+// the files run at the same time.
 async function countTransactionTestEntities(): Promise<unknown> {
   const rows = await (connection as MemgraphConnection).run(
-    "MATCH (n:Entity) WHERE n.value STARTS WITH '__test__tx' RETURN count(n) AS count",
+    "MATCH (n:Entity) WHERE n.value STARTS WITH '__test_tx__' RETURN count(n) AS count",
   );
 
   return rows[0]?.["count"];
@@ -123,13 +125,13 @@ test("runs several statements in one transaction", { skip: skipWithoutMemgraph }
   const memgraph = connection as MemgraphConnection;
 
   await memgraph.runInTransaction([
-    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test__tx1" } },
-    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test__tx2" } },
+    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test_tx__1" } },
+    { query: "CREATE (:Entity {type: 'T', value: $value})", parameters: { value: "__test_tx__2" } },
   ]);
 
   assert.equal(await countTransactionTestEntities(), 2);
 
-  await memgraph.run("MATCH (n:Entity) WHERE n.value STARTS WITH '__test__tx' DETACH DELETE n");
+  await memgraph.run("MATCH (n:Entity) WHERE n.value STARTS WITH '__test_tx__' DETACH DELETE n");
 });
 
 test(
@@ -140,7 +142,7 @@ test(
       (connection as MemgraphConnection).runInTransaction([
         {
           query: "CREATE (:Entity {type: 'T', value: $value})",
-          parameters: { value: "__test__tx3" },
+          parameters: { value: "__test_tx__3" },
         },
         { query: "THIS IS NOT CYPHER", parameters: {} },
       ]),

@@ -98,3 +98,13 @@ test("refuses hops and maxEntities that make no sense before asking anything", a
   );
   assert.equal(calls.length, 0);
 });
+
+test("refuses to read a page after the first, asking nothing, until the database reads pages", async () => {
+  const { connection, calls } = fakeConnection(() => []);
+
+  await assert.rejects(
+    getEntityNeighbourhood(connection, origin, { offset: 1 }),
+    /offset is not built in Memgraph yet/,
+  );
+  assert.equal(calls.length, 0);
+});

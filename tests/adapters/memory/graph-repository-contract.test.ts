@@ -1,5 +1,6 @@
 import { createInMemoryGraphRepository } from "../../../src/adapters/memory/in-memory-graph-repository.ts";
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
+import { testNeighbourhoodPagesContract } from "../../core/ports/graph-repository/neighbourhood-pages-contract.ts";
 import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
 // The in-memory repository against the port's contract. Each test gets a new, empty repository, so no
@@ -14,3 +15,4 @@ const options = {
 
 testGraphRepositoryContract(options);
 testNeighbourhoodContract(options);
+testNeighbourhoodPagesContract(options);

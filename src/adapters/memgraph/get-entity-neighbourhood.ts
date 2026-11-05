@@ -69,7 +69,11 @@ export async function getEntityNeighbourhood(
   origin: Entity,
   options: QueryOptions & NeighbourhoodOptions = {},
 ): Promise<EntityNeighbourhood | null> {
-  const { hops, maxEntities } = resolveNeighbourhoodOptions(options);
+  const { hops, maxEntities, offset } = resolveNeighbourhoodOptions(options);
+  // Reading by pages is not built here yet; answering the first page for any `offset` would be wrong.
+  if (offset > 0) {
+    throw new Error("offset is not built in Memgraph yet");
+  }
   const timeoutMs = options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
   const startedAt = Date.now();
 
@@ -115,6 +119,7 @@ export async function getEntityNeighbourhood(
     origin,
     hops,
     maxEntities,
+    offset,
     reached,
     relations: edges.map(edgeToRelation),
     attributes: attributeRows.flatMap((row) =>

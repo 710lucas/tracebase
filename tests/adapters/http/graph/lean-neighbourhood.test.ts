@@ -16,6 +16,7 @@ const neighbourhood = createEntityNeighbourhood({
   origin,
   hops: 2,
   maxEntities: 10,
+  offset: 0,
   reached: [
     { entity: origin, distance: 0 },
     { entity: domain, distance: 1 },
@@ -79,6 +80,7 @@ test("an origin without attributes has an empty list", () => {
     origin,
     hops: 1,
     maxEntities: 5,
+    offset: 0,
     reached: [{ entity: origin, distance: 0 }],
     relations: [],
     attributes: [],

@@ -19,6 +19,7 @@ export type {
 export {
   DEFAULT_NEIGHBOURHOOD_HOPS,
   DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES,
+  DEFAULT_NEIGHBOURHOOD_OFFSET,
   resolveNeighbourhoodOptions,
 } from "./neighbourhood-options.ts";
 export type {
