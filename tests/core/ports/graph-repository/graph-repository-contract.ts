@@ -43,6 +43,19 @@ export function testGraphRepositoryContract(options: GraphRepositoryContractOpti
     assert.equal(await repository.getEntityDegree(entity(HOST, "nobody")), null);
   });
 
+  test(`${name}: the degree can be asked with a time limit of its own`, { skip }, async () => {
+    const repository = await createRepository();
+    const source = entity(HOST, "with-limit");
+    await repository.save({
+      relations: [relation(source, entity(EMAIL, "with-limit"))],
+      attributes: [],
+    });
+
+    const degree = await repository.getEntityDegree(source, { timeoutMs: 5000 });
+
+    assert.equal(degree?.total, 1);
+  });
+
   test(`${name}: an entity that only has attributes has degree zero`, { skip }, async () => {
     const repository = await createRepository();
     const host = entity(HOST, "only-attributes");

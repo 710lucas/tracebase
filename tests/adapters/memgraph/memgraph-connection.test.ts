@@ -1,5 +1,6 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
+import { QueryTimeoutError } from "../../../src/core/ports/graph-repository/index.ts";
 import {
   connectToMemgraph,
   DEFAULT_MEMGRAPH_URL,
@@ -63,6 +64,49 @@ test(
     );
 
     assert.deepEqual(rows, [{ banner: "nginx", name: "x" }]);
+  },
+);
+
+// Streams about 10^12 steps into one counter: it runs for hours but holds almost nothing in memory, so
+// cancelling it by time is safe for the database. A cartesian product over the real graph is NOT a safe
+// slow query: it filled the memory of the container and killed it (2026-11-04).
+const SLOW_QUERY =
+  "UNWIND range(1, 1000000) AS a UNWIND range(1, 1000000) AS b RETURN count(*) AS total";
+
+test(
+  "cancels a query that exceeds its time limit and says how long the limit was",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const startedAt = performance.now();
+
+    await assert.rejects(
+      (connection as MemgraphConnection).run(SLOW_QUERY, {}, { timeoutMs: 300 }),
+      (error: unknown) => error instanceof QueryTimeoutError && error.timeoutMs === 300,
+    );
+
+    // Memgraph cancelled it itself, near the limit; it did not run for the 36 s seen inside `executeRead`.
+    assert.ok(performance.now() - startedAt < 5000);
+  },
+);
+
+test("a query inside its time limit is not affected", { skip: skipWithoutMemgraph }, async () => {
+  const rows = await (connection as MemgraphConnection).run(
+    "RETURN 1 AS one",
+    {},
+    { timeoutMs: 5000 },
+  );
+
+  assert.deepEqual(rows, [{ one: 1 }]);
+});
+
+test(
+  "an error that is not a timeout keeps its own error even when a limit is set",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    await assert.rejects(
+      (connection as MemgraphConnection).run("THIS IS NOT CYPHER", {}, { timeoutMs: 5000 }),
+      (error: unknown) => !(error instanceof QueryTimeoutError),
+    );
   },
 );
 

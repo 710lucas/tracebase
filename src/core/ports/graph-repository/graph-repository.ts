@@ -10,6 +10,16 @@ import type {
   RunSummary,
 } from "./graph-overview.ts";
 
+// How long a read of the graph may take when the caller does not say (30 seconds).
+export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
+
+// What a caller may ask of a read of the graph besides the question itself. `timeoutMs` is how long the
+// read may take; when it takes longer it is cancelled and fails with `QueryTimeoutError`, never with a
+// partial answer. There is no upper limit on purpose: the caller chooses how much to wait.
+export interface QueryOptions {
+  readonly timeoutMs?: number;
+}
+
 // What one import brings: the relations and the attributes found by one run of one tool. Both are
 // validated models, so a repository never has to check them again.
 export interface ImportBatch {
@@ -45,6 +55,8 @@ export interface EntityFindings {
 // `getEntityDegree` is the first of the questions an AI asks about one entity (see `entity-degree.ts`):
 // how many relations it has, in each direction and by the type of the neighbour. Like `findEntity`, it
 // answers `null` when nothing mentions the entity; an entity that only has attributes has degree zero.
+// It takes `QueryOptions`; a repository whose reads cannot run long, such as the in-memory one, may
+// ignore the time limit.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -52,5 +64,5 @@ export interface GraphRepository {
   listEntityTypes(): Promise<EntityTypeCount[]>;
   listEntities(query: EntityListQuery): Promise<EntityPage>;
   graphTotals(): Promise<GraphTotals>;
-  getEntityDegree(entity: Entity): Promise<EntityDegree | null>;
+  getEntityDegree(entity: Entity, options?: QueryOptions): Promise<EntityDegree | null>;
 }

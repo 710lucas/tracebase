@@ -1,8 +1,10 @@
 import type { Entity } from "../../core/domain/entity/index.ts";
 import {
   createEntityDegree,
+  DEFAULT_QUERY_TIMEOUT_MS,
   type EntityDegree,
   type NeighbourTypeCount,
+  type QueryOptions,
 } from "../../core/ports/graph-repository/index.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 
@@ -30,13 +32,15 @@ interface DegreeRow {
 export async function getEntityDegree(
   connection: MemgraphConnection,
   entity: Entity,
+  options: QueryOptions = {},
 ): Promise<EntityDegree | null> {
   // At most one row: an entity is one node (the uniqueness constraint on type and value) and both
   // directions are folded into it by `collect`. No row means the node does not exist.
-  const [row] = (await connection.run(COUNT_EDGES_BY_NEIGHBOUR_TYPE, {
-    type: entity.type,
-    value: entity.value,
-  })) as unknown as DegreeRow[];
+  const [row] = (await connection.run(
+    COUNT_EDGES_BY_NEIGHBOUR_TYPE,
+    { type: entity.type, value: entity.value },
+    { timeoutMs: options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS },
+  )) as unknown as DegreeRow[];
 
   if (row === undefined) return null;
 

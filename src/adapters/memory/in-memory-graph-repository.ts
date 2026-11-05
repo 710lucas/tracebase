@@ -70,7 +70,8 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
 
     // The relations of the entity are the ones `findEntity` gathers; each counts once for the type of
     // the entity at its other end, in the direction it points. A relation from the entity to itself is
-    // both outgoing and incoming.
+    // both outgoing and incoming. It takes no `QueryOptions`: counting over two lists in memory ends in
+    // milliseconds, so there is nothing to cancel.
     getEntityDegree: async (entity) => {
       const findings = await repository.findEntity(entity);
       if (findings === null) {

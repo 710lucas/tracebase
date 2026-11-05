@@ -54,6 +54,6 @@ export async function createMemgraphGraphRepository(
 
     graphTotals: () => graphTotals(connection),
 
-    getEntityDegree: (entity) => getEntityDegree(connection, entity),
+    getEntityDegree: (entity, options) => getEntityDegree(connection, entity, options),
   };
 }
