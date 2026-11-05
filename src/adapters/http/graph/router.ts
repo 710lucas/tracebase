@@ -3,6 +3,7 @@ import type { GraphRepository } from "../../../core/ports/graph-repository/index
 import { createGraphController } from "./controller.ts";
 import { validateFindEntityRequest } from "./middlewares/validate-find-entity-request.ts";
 import { validateNeighbourhoodRequest } from "./middlewares/validate-neighbourhood-request.ts";
+import { validateShortestPathRequest } from "./middlewares/validate-shortest-path-request.ts";
 import { validateQueryOptionsRequest } from "./middlewares/validate-query-options-request.ts";
 import { validateListEntitiesRequest } from "./middlewares/validate-list-entities-request.ts";
 import { createGraphService } from "./service.ts";
@@ -31,6 +32,13 @@ export function createGraphRouter(graphRepository: GraphRepository): Router {
     validateNeighbourhoodRequest,
     validateQueryOptionsRequest,
     controller.getEntityNeighbourhood,
+  );
+
+  router.get(
+    "/entities/shortest-path",
+    validateShortestPathRequest,
+    validateQueryOptionsRequest,
+    controller.getShortestPath,
   );
 
   router.get("/types", controller.listEntityTypes);

@@ -4,6 +4,7 @@ import { createInMemoryGraphRepository } from "../../../../src/adapters/memory/i
 import { createGraphService } from "../../../../src/adapters/http/graph/service.ts";
 import { createAttribute } from "../../../../src/core/domain/attribute/index.ts";
 import { createEntity, InvalidEntityError } from "../../../../src/core/domain/entity/index.ts";
+import { createRelation } from "../../../../src/core/domain/relation/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
 
 const address = createEntity("IP_ADDRESS", "93.184.216.34");
@@ -71,4 +72,41 @@ test("gives the neighbourhood of an entity, normalizing the text and passing the
   assert.equal(neighbourhood?.entities.length, 1);
   assert.equal(await service.getEntityNeighbourhood("IP_ADDRESS", "10.0.0.99", {}), null);
   await assert.rejects(service.getEntityNeighbourhood(" ", "x", {}), InvalidEntityError);
+});
+
+test("gives the shortest path between two entities, normalizing the text and passing the options on", async () => {
+  const repository = createInMemoryGraphRepository();
+  const other = createEntity("IP_ADDRESS", "10.0.0.1");
+  await repository.save({
+    relations: [
+      createRelation({
+        source: address,
+        target: other,
+        provenance: createProvenance({ tool: "spiderfoot", run: "scan-1" }),
+      }),
+    ],
+    attributes: [],
+  });
+  const service = createGraphService(repository);
+
+  const path = await service.getShortestPath(
+    { type: " IP_ADDRESS ", value: "93.184.216.34 " },
+    { type: "IP_ADDRESS", value: "10.0.0.1" },
+    { maxHops: 3 },
+  );
+
+  assert.equal(path?.entities.length, 2);
+  assert.equal(path?.maxHops, 3);
+  assert.equal(
+    await service.getShortestPath(
+      { type: "IP_ADDRESS", value: "10.0.0.99" },
+      { type: "IP_ADDRESS", value: "10.0.0.1" },
+      {},
+    ),
+    null,
+  );
+  await assert.rejects(
+    service.getShortestPath({ type: " ", value: "x" }, { type: "T", value: "y" }, {}),
+    InvalidEntityError,
+  );
 });

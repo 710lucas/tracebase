@@ -5,6 +5,7 @@ import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import {
   InvalidNeighbourhoodOptionsError,
+  InvalidShortestPathOptionsError,
   QueryTimeoutError,
   type EntityListQuery,
   type QueryOptions,
@@ -15,6 +16,10 @@ import {
   type NeighbourhoodRequest,
 } from "./middlewares/validate-neighbourhood-request.ts";
 import { toLeanNeighbourhood } from "./lean-neighbourhood.ts";
+import {
+  SHORTEST_PATH_REQUEST_KEY,
+  type ShortestPathRequest,
+} from "./middlewares/validate-shortest-path-request.ts";
 import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
@@ -127,6 +132,49 @@ export function createGraphController(service: GraphService) {
         if (
           error instanceof InvalidEntityError ||
           error instanceof InvalidNeighbourhoodOptionsError
+        ) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        if (error instanceof QueryTimeoutError) {
+          response
+            .status(constants.HTTP_STATUS_GATEWAY_TIMEOUT)
+            .json({ error: error.message, timeoutMs: error.timeoutMs });
+          return;
+        }
+
+        throw error;
+      }
+    },
+
+    // The path with the fewest relations between two entities. The validation middlewares have already left
+    // the two entities, the maximum of hops and the time limit in `response.locals`. Answers 200 with the
+    // path (empty when there is none within the hops: that is an answer), 404 when either entity is not in
+    // the graph, 400 when the domain finds a type or value blank or the core refuses `maxHops`, and 504 when
+    // the read ran out of time. Any other error is ours (500).
+    getShortestPath: async (_request: Request, response: Response): Promise<void> => {
+      const {
+        from,
+        to,
+        options: pathOptions,
+      } = response.locals[SHORTEST_PATH_REQUEST_KEY] as ShortestPathRequest;
+      const options = { ...pathOptions, ...(response.locals[QUERY_OPTIONS_KEY] as QueryOptions) };
+
+      try {
+        const path = await service.getShortestPath(from, to, options);
+
+        if (path === null) {
+          response
+            .status(constants.HTTP_STATUS_NOT_FOUND)
+            .json({ error: "the entity at the start or at the end of the path was not found" });
+          return;
+        }
+
+        response.status(constants.HTTP_STATUS_OK).json(path);
+      } catch (error) {
+        if (
+          error instanceof InvalidEntityError ||
+          error instanceof InvalidShortestPathOptionsError
         ) {
           response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
           return;
