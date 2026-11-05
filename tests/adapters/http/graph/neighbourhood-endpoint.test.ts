@@ -70,18 +70,59 @@ function getNeighbourhood(query: string) {
 
 const ORIGIN = "type=DOMAIN_NAME&value=a.example.com";
 
-interface Body {
+interface LeanBody {
+  origin: { type: string; value: string; attributes: { name: string; values: string[] }[] };
   hops: number;
   maxEntities: number;
   truncated: boolean;
   hint?: string;
-  entities: { entity: { value: string }; distance: number; attributes: unknown[] }[];
-  relations: unknown[];
+  entities: { type: string; value: string; distance: number }[];
+  relations: { source: { value: string }; target: { value: string }; type?: string }[];
 }
 
-test("answers 200 with the entities, their distances, the relations and the attributes", async () => {
+interface FullBody {
+  entities: { entity: { value: string }; distance: number; attributes: unknown[] }[];
+  relations: { provenance: unknown }[];
+}
+
+test("answers 200 with the lean neighbourhood: the origin, the others with their distance, the relations", async () => {
   const response = await getNeighbourhood(ORIGIN);
-  const body = (await response.json()) as Body;
+  const body = (await response.json()) as LeanBody;
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.origin, { type: "DOMAIN_NAME", value: "a.example.com", attributes: [] });
+  assert.deepEqual(
+    body.entities.map(({ value, distance }) => [value, distance]),
+    [
+      ["b.example.com", 1],
+      ["c.example.com", 2],
+      ["d.example.com", 3],
+    ],
+  );
+  assert.equal(body.relations.length, 3);
+  assert.deepEqual(body.relations[0]?.source, { type: "DOMAIN_NAME", value: "a.example.com" });
+  assert.equal("provenance" in (body.relations[0] ?? {}), false);
+  assert.equal(body.hops, 3);
+  assert.equal(body.maxEntities, 200);
+  assert.equal(body.truncated, false);
+  assert.equal("hint" in body, false);
+});
+
+test("the lean answer keeps the attributes of the origin and of nothing else", async () => {
+  const body = (await (
+    await getNeighbourhood("type=DOMAIN_NAME&value=b.example.com")
+  ).json()) as LeanBody;
+
+  assert.deepEqual(body.origin.attributes, [{ name: "WEBSERVER_BANNER", values: ["nginx"] }]);
+  assert.equal(
+    body.entities.every((entity) => !("attributes" in entity)),
+    true,
+  );
+});
+
+test("detail=full brings the attributes of every entity and the provenance of every relation", async () => {
+  const response = await getNeighbourhood(`${ORIGIN}&detail=full&hops=1`);
+  const body = (await response.json()) as FullBody;
 
   assert.equal(response.status, 200);
   assert.deepEqual(
@@ -89,35 +130,47 @@ test("answers 200 with the entities, their distances, the relations and the attr
     [
       ["a.example.com", 0],
       ["b.example.com", 1],
-      ["c.example.com", 2],
-      ["d.example.com", 3],
     ],
   );
   assert.equal(body.entities[1]?.attributes.length, 1);
-  assert.equal(body.relations.length, 3);
-  assert.equal(body.hops, 3);
-  assert.equal(body.maxEntities, 300);
-  assert.equal(body.truncated, false);
-  assert.equal("hint" in body, false);
+  assert.notEqual(body.relations[0]?.provenance, undefined);
+});
+
+test("detail=lean is the same as no detail", async () => {
+  const withoutDetail = await (await getNeighbourhood(ORIGIN)).json();
+  const lean = await (await getNeighbourhood(`${ORIGIN}&detail=lean`)).json();
+
+  assert.deepEqual(lean, withoutDetail);
 });
 
 test("goes only as far as the hops asked", async () => {
-  const body = (await (await getNeighbourhood(`${ORIGIN}&hops=1`)).json()) as Body;
+  const body = (await (await getNeighbourhood(`${ORIGIN}&hops=1`)).json()) as LeanBody;
 
   assert.deepEqual(
-    body.entities.map(({ entity }) => entity.value),
-    ["a.example.com", "b.example.com"],
+    body.entities.map(({ value }) => value),
+    ["b.example.com"],
   );
 });
 
 test("cuts at maxEntities, says so and tells the caller what to do", async () => {
   const response = await getNeighbourhood(`${ORIGIN}&maxEntities=2`);
-  const body = (await response.json()) as Body;
+  const body = (await response.json()) as LeanBody;
 
   assert.equal(response.status, 200);
-  assert.equal(body.entities.length, 2);
+  // The origin counts as one of the two.
+  assert.equal(body.entities.length, 1);
   assert.equal(body.truncated, true);
   assert.match(body.hint ?? "", /bigger maxEntities and a bigger timeoutMs/);
+});
+
+test("the full answer also says it was cut", async () => {
+  const body = (await (await getNeighbourhood(`${ORIGIN}&maxEntities=2&detail=full`)).json()) as {
+    truncated: boolean;
+    hint?: string;
+  };
+
+  assert.equal(body.truncated, true);
+  assert.notEqual(body.hint, undefined);
 });
 
 test("answers 404 when nothing in the graph mentions the entity", async () => {
@@ -146,6 +199,13 @@ for (const query of ["hops=abc", "hops=1.5", "hops=-1", "maxEntities=x", "hops=1
     assert.match(((await response.json()) as { error: string }).error, /hops and maxEntities/);
   });
 }
+
+test("answers 400 for a detail that is neither lean nor full", async () => {
+  const response = await getNeighbourhood(`${ORIGIN}&detail=everything`);
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "detail is lean or full, given once" });
+});
 
 for (const query of ["hops=0", "maxEntities=0"]) {
   test(`answers 400 with the core's reason for "${query}"`, async () => {

@@ -7,11 +7,14 @@ import {
   InvalidNeighbourhoodOptionsError,
   QueryTimeoutError,
   type EntityListQuery,
-  type NeighbourhoodOptions,
   type QueryOptions,
 } from "../../../core/ports/graph-repository/index.ts";
 import { ENTITY_QUERY_KEY, type EntityQuery } from "./middlewares/validate-find-entity-request.ts";
-import { NEIGHBOURHOOD_OPTIONS_KEY } from "./middlewares/validate-neighbourhood-request.ts";
+import {
+  NEIGHBOURHOOD_REQUEST_KEY,
+  type NeighbourhoodRequest,
+} from "./middlewares/validate-neighbourhood-request.ts";
+import { toLeanNeighbourhood } from "./lean-neighbourhood.ts";
 import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
@@ -86,15 +89,19 @@ export function createGraphController(service: GraphService) {
       }
     },
 
-    // The entities within some relations of one entity. The three validation middlewares have already left
-    // the entity, the neighbourhood options and the time limit in `response.locals`. Answers 200 with the
-    // neighbourhood (and a `hint` when it was cut), 404 when nothing mentions the entity, 400 when the
-    // domain finds the type or value blank or the core refuses hops or maxEntities, and 504 when the read
-    // ran out of time. Any other error is ours (500).
+    // The entities within some relations of one entity. The three validation middlewares have already
+    // left the entity, the neighbourhood request (options and detail) and the time limit in
+    // `response.locals`. Answers 200 with the lean neighbourhood, or the full one when `detail=full`, plus
+    // a `hint` when it was cut; 404 when nothing mentions the entity; 400 when the domain finds the type
+    // or value blank or the core refuses hops or maxEntities; 504 when the read ran out of time. Any
+    // other error is ours (500).
     getEntityNeighbourhood: async (_request: Request, response: Response): Promise<void> => {
       const { type, value } = response.locals[ENTITY_QUERY_KEY] as EntityQuery;
+      const { options: neighbourhoodOptions, detail } = response.locals[
+        NEIGHBOURHOOD_REQUEST_KEY
+      ] as NeighbourhoodRequest;
       const options = {
-        ...(response.locals[NEIGHBOURHOOD_OPTIONS_KEY] as NeighbourhoodOptions),
+        ...neighbourhoodOptions,
         ...(response.locals[QUERY_OPTIONS_KEY] as QueryOptions),
       };
 
@@ -106,11 +113,11 @@ export function createGraphController(service: GraphService) {
           return;
         }
 
+        const answer = detail === "full" ? neighbourhood : toLeanNeighbourhood(neighbourhood);
+
         response
           .status(constants.HTTP_STATUS_OK)
-          .json(
-            neighbourhood.truncated ? { ...neighbourhood, hint: TRUNCATED_HINT } : neighbourhood,
-          );
+          .json(neighbourhood.truncated ? { ...answer, hint: TRUNCATED_HINT } : answer);
       } catch (error) {
         if (
           error instanceof InvalidEntityError ||

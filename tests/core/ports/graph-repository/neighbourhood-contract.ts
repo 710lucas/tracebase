@@ -4,7 +4,10 @@ import { createAttribute } from "../../../../src/core/domain/attribute/index.ts"
 import { createEntity, type Entity } from "../../../../src/core/domain/entity/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
 import { createRelation, type Relation } from "../../../../src/core/domain/relation/index.ts";
-import { InvalidNeighbourhoodOptionsError } from "../../../../src/core/ports/graph-repository/index.ts";
+import {
+  DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES,
+  InvalidNeighbourhoodOptionsError,
+} from "../../../../src/core/ports/graph-repository/index.ts";
 import type { GraphRepositoryContractOptions } from "./graph-repository-contract.ts";
 
 // What every `GraphRepository` must answer for `getEntityNeighbourhood`, whatever keeps the graph. Same
@@ -107,7 +110,7 @@ export function testNeighbourhoodContract(options: GraphRepositoryContractOption
 
     assert.deepEqual(values(neighbourhood?.entities ?? []), ["a", "b", "c", "d"]);
     assert.equal(neighbourhood?.hops, 3);
-    assert.equal(neighbourhood?.maxEntities, 300);
+    assert.equal(neighbourhood?.maxEntities, DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES);
     assert.equal(neighbourhood?.truncated, false);
   });
 
