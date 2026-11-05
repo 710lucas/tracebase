@@ -4,4 +4,4 @@ export type { Entity } from "./entity.ts";
 export { createEntity } from "./create-entity.ts";
 export { InvalidEntityError } from "./invalid-entity-error.ts";
 export { entityKey } from "./entity-key.ts";
-export { compareEntities } from "./compare-entities.ts";
+export { compareEntities, compareEntitiesByValue } from "./compare-entities.ts";

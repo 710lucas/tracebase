@@ -1,3 +1,4 @@
+import { compareText } from "../text/index.ts";
 import type { Entity } from "./entity.ts";
 
 // The order of entities whenever the answer of a question has to come in a fixed order: by type, then by
@@ -8,7 +9,8 @@ export function compareEntities(first: Entity, second: Entity): number {
   return compareText(first.type, second.type) || compareText(first.value, second.value);
 }
 
-function compareText(first: string, second: string): number {
-  if (first === second) return 0;
-  return first < second ? -1 : 1;
+// The other fixed order, for a list that is read by value, such as the results of a search: by value first,
+// then by type when two entities have the same value.
+export function compareEntitiesByValue(first: Entity, second: Entity): number {
+  return compareText(first.value, second.value) || compareText(first.type, second.type);
 }

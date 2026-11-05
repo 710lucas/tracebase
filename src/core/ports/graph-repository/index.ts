@@ -50,6 +50,15 @@ export {
   resolveSearch,
 } from "./search-options.ts";
 export type { ResolvedSearch, SearchOptions, SearchScope } from "./search-options.ts";
+export { createEntitySearchPage } from "./entity-search.ts";
+export type {
+  EntitySearchPage,
+  EntitySearchParts,
+  FoundEntity,
+  FoundMatch,
+  SearchMatch,
+  SearchResult,
+} from "./entity-search.ts";
 export { InvalidSearchError } from "./invalid-search-error.ts";
 export { createSnippet, indexOfText } from "./search-text.ts";
 export { createRunSummaries } from "./run-summaries.ts";
