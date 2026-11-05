@@ -4,14 +4,22 @@ import type { Request, Response } from "express";
 import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import {
+  InvalidNeighbourhoodOptionsError,
   QueryTimeoutError,
   type EntityListQuery,
+  type NeighbourhoodOptions,
   type QueryOptions,
 } from "../../../core/ports/graph-repository/index.ts";
 import { ENTITY_QUERY_KEY, type EntityQuery } from "./middlewares/validate-find-entity-request.ts";
+import { NEIGHBOURHOOD_OPTIONS_KEY } from "./middlewares/validate-neighbourhood-request.ts";
 import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
+
+// What the caller is told when the neighbourhood was cut by `maxEntities`. It names URL parameters, which
+// is why it is written here and not in the core.
+const TRUNCATED_HINT =
+  "More entities exist than maxEntities; ask again with a bigger maxEntities and a bigger timeoutMs to get them";
 
 // Controller of the graph routes: translates HTTP into a call to the service and the service's result
 // (or error) back into HTTP. It holds no business rule.
@@ -64,6 +72,50 @@ export function createGraphController(service: GraphService) {
         response.status(constants.HTTP_STATUS_OK).json(degree);
       } catch (error) {
         if (error instanceof InvalidEntityError) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        if (error instanceof QueryTimeoutError) {
+          response
+            .status(constants.HTTP_STATUS_GATEWAY_TIMEOUT)
+            .json({ error: error.message, timeoutMs: error.timeoutMs });
+          return;
+        }
+
+        throw error;
+      }
+    },
+
+    // The entities within some relations of one entity. The three validation middlewares have already left
+    // the entity, the neighbourhood options and the time limit in `response.locals`. Answers 200 with the
+    // neighbourhood (and a `hint` when it was cut), 404 when nothing mentions the entity, 400 when the
+    // domain finds the type or value blank or the core refuses hops or maxEntities, and 504 when the read
+    // ran out of time. Any other error is ours (500).
+    getEntityNeighbourhood: async (_request: Request, response: Response): Promise<void> => {
+      const { type, value } = response.locals[ENTITY_QUERY_KEY] as EntityQuery;
+      const options = {
+        ...(response.locals[NEIGHBOURHOOD_OPTIONS_KEY] as NeighbourhoodOptions),
+        ...(response.locals[QUERY_OPTIONS_KEY] as QueryOptions),
+      };
+
+      try {
+        const neighbourhood = await service.getEntityNeighbourhood(type, value, options);
+
+        if (neighbourhood === null) {
+          response.status(constants.HTTP_STATUS_NOT_FOUND).json({ error: "entity not found" });
+          return;
+        }
+
+        response
+          .status(constants.HTTP_STATUS_OK)
+          .json(
+            neighbourhood.truncated ? { ...neighbourhood, hint: TRUNCATED_HINT } : neighbourhood,
+          );
+      } catch (error) {
+        if (
+          error instanceof InvalidEntityError ||
+          error instanceof InvalidNeighbourhoodOptionsError
+        ) {
           response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
           return;
         }

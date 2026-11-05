@@ -57,3 +57,18 @@ test("gives the degree of an entity, normalizing the text like an import does", 
   assert.equal(await service.getEntityDegree("IP_ADDRESS", "10.0.0.99", {}), null);
   await assert.rejects(service.getEntityDegree(" ", "x", {}), InvalidEntityError);
 });
+
+test("gives the neighbourhood of an entity, normalizing the text and passing the options on", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [], attributes: [attribute] });
+  const service = createGraphService(repository);
+
+  const neighbourhood = await service.getEntityNeighbourhood(" IP_ADDRESS ", "93.184.216.34 ", {
+    hops: 2,
+  });
+
+  assert.equal(neighbourhood?.hops, 2);
+  assert.equal(neighbourhood?.entities.length, 1);
+  assert.equal(await service.getEntityNeighbourhood("IP_ADDRESS", "10.0.0.99", {}), null);
+  await assert.rejects(service.getEntityNeighbourhood(" ", "x", {}), InvalidEntityError);
+});
