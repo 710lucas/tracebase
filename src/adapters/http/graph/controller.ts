@@ -3,8 +3,13 @@ import type { Request, Response } from "express";
 // speaks HTTP/1.1 through Express).
 import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
-import type { EntityListQuery } from "../../../core/ports/graph-repository/index.ts";
+import {
+  QueryTimeoutError,
+  type EntityListQuery,
+  type QueryOptions,
+} from "../../../core/ports/graph-repository/index.ts";
 import { ENTITY_QUERY_KEY, type EntityQuery } from "./middlewares/validate-find-entity-request.ts";
+import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
 
@@ -32,6 +37,40 @@ export function createGraphController(service: GraphService) {
       } catch (error) {
         if (error instanceof InvalidEntityError) {
           response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+
+        throw error;
+      }
+    },
+
+    // How connected one entity is. `validateFindEntityRequest` and `validateQueryOptionsRequest` have
+    // already left the entity and the time limit in `response.locals`. Answers 200 with the degree, 404
+    // when nothing mentions the entity, 400 when the domain finds the type or value blank, and 504 when
+    // the read ran out of time (the body says the limit used, so the caller can ask for less or give
+    // more). Any other error is ours (500).
+    getEntityDegree: async (_request: Request, response: Response): Promise<void> => {
+      const { type, value } = response.locals[ENTITY_QUERY_KEY] as EntityQuery;
+      const options = response.locals[QUERY_OPTIONS_KEY] as QueryOptions;
+
+      try {
+        const degree = await service.getEntityDegree(type, value, options);
+
+        if (degree === null) {
+          response.status(constants.HTTP_STATUS_NOT_FOUND).json({ error: "entity not found" });
+          return;
+        }
+
+        response.status(constants.HTTP_STATUS_OK).json(degree);
+      } catch (error) {
+        if (error instanceof InvalidEntityError) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        if (error instanceof QueryTimeoutError) {
+          response
+            .status(constants.HTTP_STATUS_GATEWAY_TIMEOUT)
+            .json({ error: error.message, timeoutMs: error.timeoutMs });
           return;
         }
 

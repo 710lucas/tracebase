@@ -47,3 +47,13 @@ test("lets the domain error reach the caller when the type or the value is blank
   await assert.rejects(service.findEntity("  ", "93.184.216.34"), InvalidEntityError);
   await assert.rejects(service.findEntity("IP_ADDRESS", ""), InvalidEntityError);
 });
+
+test("gives the degree of an entity, normalizing the text like an import does", async () => {
+  const repository = createInMemoryGraphRepository();
+  await repository.save({ relations: [], attributes: [attribute] });
+  const service = createGraphService(repository);
+
+  assert.equal((await service.getEntityDegree(" IP_ADDRESS ", "93.184.216.34 ", {}))?.total, 0);
+  assert.equal(await service.getEntityDegree("IP_ADDRESS", "10.0.0.99", {}), null);
+  await assert.rejects(service.getEntityDegree(" ", "x", {}), InvalidEntityError);
+});

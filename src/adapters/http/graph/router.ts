@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { GraphRepository } from "../../../core/ports/graph-repository/index.ts";
 import { createGraphController } from "./controller.ts";
 import { validateFindEntityRequest } from "./middlewares/validate-find-entity-request.ts";
+import { validateQueryOptionsRequest } from "./middlewares/validate-query-options-request.ts";
 import { validateListEntitiesRequest } from "./middlewares/validate-list-entities-request.ts";
 import { createGraphService } from "./service.ts";
 
@@ -15,6 +16,13 @@ export function createGraphRouter(graphRepository: GraphRepository): Router {
   const router = Router();
 
   router.get("/entities", validateFindEntityRequest, controller.findEntity);
+
+  router.get(
+    "/entities/degree",
+    validateFindEntityRequest,
+    validateQueryOptionsRequest,
+    controller.getEntityDegree,
+  );
 
   router.get("/types", controller.listEntityTypes);
 
