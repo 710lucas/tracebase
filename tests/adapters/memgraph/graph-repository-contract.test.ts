@@ -1,6 +1,4 @@
-import { after, beforeEach, test } from "node:test";
-import assert from "node:assert/strict";
-import { createEntity } from "../../../src/core/domain/entity/index.ts";
+import { after, beforeEach } from "node:test";
 import {
   connectToMemgraph,
   DEFAULT_MEMGRAPH_URL,
@@ -8,6 +6,7 @@ import {
 } from "../../../src/adapters/memgraph/memgraph-connection.ts";
 import { createMemgraphGraphRepository } from "../../../src/adapters/memgraph/memgraph-graph-repository.ts";
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
+import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
 // The Memgraph repository against the port's contract. Needs a running Memgraph; skipped when none
 // answers. The database may hold other data and other test files write to it at the same time, so the
@@ -42,25 +41,13 @@ after(async () => {
   await connection?.close();
 });
 
-testGraphRepositoryContract({
+const contractOptions = {
   name: "memgraph",
   skip: connection === null ? "no Memgraph is running" : false,
   valuePrefix: PREFIX,
   tool: `${PREFIX}tool`,
   createRepository: () => createMemgraphGraphRepository(connection as MemgraphConnection),
-});
+} as const;
 
-// Until slice 6c-2 builds the neighbourhood in Memgraph, the repository must say so instead of
-// answering wrongly. This test goes away when `testNeighbourhoodContract` runs here.
-test(
-  "the neighbourhood is not built in Memgraph yet",
-  { skip: connection === null ? "no Memgraph is running" : false },
-  async () => {
-    const repository = await createMemgraphGraphRepository(connection as MemgraphConnection);
-
-    await assert.rejects(
-      repository.getEntityNeighbourhood(createEntity("HOST", "x")),
-      /not built in Memgraph yet/,
-    );
-  },
-);
+testGraphRepositoryContract(contractOptions);
+testNeighbourhoodContract(contractOptions);

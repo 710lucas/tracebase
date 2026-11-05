@@ -107,7 +107,7 @@ export function testNeighbourhoodContract(options: GraphRepositoryContractOption
 
     assert.deepEqual(values(neighbourhood?.entities ?? []), ["a", "b", "c", "d"]);
     assert.equal(neighbourhood?.hops, 3);
-    assert.equal(neighbourhood?.maxEntities, 100);
+    assert.equal(neighbourhood?.maxEntities, 300);
     assert.equal(neighbourhood?.truncated, false);
   });
 

@@ -12,7 +12,10 @@ test("fills in the defaults when nothing is given", () => {
     hops: DEFAULT_NEIGHBOURHOOD_HOPS,
     maxEntities: DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES,
   });
-  assert.deepEqual(resolveNeighbourhoodOptions({ hops: 5 }), { hops: 5, maxEntities: 100 });
+  assert.deepEqual(resolveNeighbourhoodOptions({ hops: 5 }), {
+    hops: 5,
+    maxEntities: DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES,
+  });
 });
 
 test("has no upper limit", () => {

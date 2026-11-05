@@ -1,7 +1,7 @@
 import { InvalidNeighbourhoodOptionsError } from "./invalid-neighbourhood-options-error.ts";
 
 export const DEFAULT_NEIGHBOURHOOD_HOPS = 3;
-export const DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES = 100;
+export const DEFAULT_NEIGHBOURHOOD_MAX_ENTITIES = 300;
 
 // What a caller may choose about a neighbourhood besides the entity: how far to go (`hops`, the number
 // of relations between the entity and the farthest one reached) and how many entities to return at

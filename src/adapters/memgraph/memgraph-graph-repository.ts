@@ -4,6 +4,7 @@ import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
 import { getEntityDegree } from "./get-entity-degree.ts";
+import { getEntityNeighbourhood } from "./get-entity-neighbourhood.ts";
 import { findEntity } from "./find-entity.ts";
 import { graphTotals } from "./graph-totals.ts";
 import { listEntities } from "./list-entities.ts";
@@ -56,8 +57,7 @@ export async function createMemgraphGraphRepository(
 
     getEntityDegree: (entity, options) => getEntityDegree(connection, entity, options),
 
-    // Slice 6c-2 builds this; until then it says so instead of answering wrongly.
-    getEntityNeighbourhood: () =>
-      Promise.reject(new Error("getEntityNeighbourhood is not built in Memgraph yet (slice 6c-2)")),
+    getEntityNeighbourhood: (entity, options) =>
+      getEntityNeighbourhood(connection, entity, options),
   };
 }

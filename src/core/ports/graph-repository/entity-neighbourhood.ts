@@ -56,8 +56,8 @@ export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeig
     .sort(
       (first, second) =>
         first.distance - second.distance ||
-        first.entity.type.localeCompare(second.entity.type) ||
-        first.entity.value.localeCompare(second.entity.value),
+        compareText(first.entity.type, second.entity.type) ||
+        compareText(first.entity.value, second.entity.value),
     )
     .slice(0, maxEntities);
   const keptKeys = new Set(kept.map(({ entity }) => entityKey(entity)));
@@ -83,4 +83,12 @@ export function createEntityNeighbourhood(parts: NeighbourhoodParts): EntityNeig
     ),
     truncated: reached.length > maxEntities,
   };
+}
+
+// Plain character-by-character order, not the language-aware order of `localeCompare`: a database sorts
+// text this way, so a repository that lets its database pick the nearest entities cuts at the same place
+// as this function does.
+function compareText(first: string, second: string): number {
+  if (first === second) return 0;
+  return first < second ? -1 : 1;
 }

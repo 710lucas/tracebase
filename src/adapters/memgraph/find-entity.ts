@@ -2,7 +2,8 @@ import type { Attribute } from "../../core/domain/attribute/index.ts";
 import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
 import type { EntityFindings } from "../../core/ports/graph-repository/index.ts";
-import { fromQualifierKey, type AttributeRecord } from "./attribute-record.ts";
+import type { AttributeRecord } from "./attribute-record.ts";
+import { currentAttributesOf } from "./current-attributes.ts";
 import { edgeToRelation, type EdgeRow } from "./edge-to-relation.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { recordToAttribute } from "./record-to-attribute.ts";
@@ -62,11 +63,7 @@ function toAttributes(entity: Entity, row: Record<string, unknown> | undefined):
   const history = row["history"] as (AttributeRecord & { name: string; qualifier?: string })[];
 
   return [
-    ...Object.entries(current).flatMap(([name, byQualifier]) =>
-      Object.entries(byQualifier).map(([qualifierKey, record]) =>
-        recordToAttribute(entity, name, fromQualifierKey(qualifierKey), record),
-      ),
-    ),
+    ...currentAttributesOf(entity, current),
     ...history.map((record) => recordToAttribute(entity, record.name, record.qualifier, record)),
   ];
 }
