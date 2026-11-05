@@ -4,6 +4,8 @@ import type { Relation } from "../../domain/relation/index.ts";
 import type { EntityDegree } from "./entity-degree.ts";
 import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
 import type { NeighbourhoodOptions } from "./neighbourhood-options.ts";
+import type { ShortestPath } from "./shortest-path.ts";
+import type { ShortestPathOptions } from "./shortest-path-options.ts";
 import type {
   EntityListQuery,
   EntityPage,
@@ -65,6 +67,12 @@ export interface EntityFindings {
 // rule. `hops` and `maxEntities` have defaults and no upper limit; when more entities exist than
 // `maxEntities` the answer is cut and says so (`truncated`). Invalid hops or maxEntities fail with
 // `InvalidNeighbourhoodOptionsError`.
+//
+// `getShortestPath` is the third (see `shortest-path.ts`): the path with the fewest relations between two
+// entities, walking the relations in either direction, up to `maxHops` (default 6, no upper limit). It
+// answers `null` when either entity is not in the graph, and an empty path (not an error) when both are but
+// no path exists within `maxHops`. Among paths of the same length the answer is always the same one. An
+// invalid `maxHops` fails with `InvalidShortestPathOptionsError`.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -77,4 +85,9 @@ export interface GraphRepository {
     entity: Entity,
     options?: QueryOptions & NeighbourhoodOptions,
   ): Promise<EntityNeighbourhood | null>;
+  getShortestPath(
+    from: Entity,
+    to: Entity,
+    options?: QueryOptions & ShortestPathOptions,
+  ): Promise<ShortestPath | null>;
 }

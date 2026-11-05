@@ -1,6 +1,7 @@
 import type { Attribute } from "../../core/domain/attribute/index.ts";
 import { entityKey, type Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
+import { neighboursOf } from "./neighbours-of.ts";
 import {
   createEntityNeighbourhood,
   type EntityNeighbourhood,
@@ -53,18 +54,4 @@ export function findNeighbourhood(
     relations,
     attributes,
   });
-}
-
-function neighboursOf(relations: readonly Relation[]): Map<string, Entity[]> {
-  const neighbours = new Map<string, Entity[]>();
-  for (const { source, target } of relations) {
-    for (const [from, to] of [
-      [source, target],
-      [target, source],
-    ] as const) {
-      const key = entityKey(from);
-      neighbours.set(key, [...(neighbours.get(key) ?? []), to]);
-    }
-  }
-  return neighbours;
 }

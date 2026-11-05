@@ -4,9 +4,11 @@ import type { Relation } from "../../core/domain/relation/index.ts";
 import {
   createEntityDegree,
   resolveNeighbourhoodOptions,
+  resolveShortestPathOptions,
   type GraphRepository,
 } from "../../core/ports/graph-repository/index.ts";
 import { findNeighbourhood } from "./find-neighbourhood.ts";
+import { findShortestPath } from "./find-shortest-path.ts";
 import {
   collectEntities,
   countEntityTypes,
@@ -95,6 +97,21 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
     // port's own rule.
     getEntityNeighbourhood: async (entity, options) =>
       findNeighbourhood(relations, attributes, entity, resolveNeighbourhoodOptions(options)),
+
+    // Like the others, it takes the time limit of `QueryOptions` and ignores it. Both entities must be in
+    // the graph (`findEntity` says so); the options are checked first, so a wrong `maxHops` is always an
+    // error, whether the entities exist or not.
+    getShortestPath: async (from, to, options) => {
+      const resolved = resolveShortestPathOptions(options);
+      if (
+        (await repository.findEntity(from)) === null ||
+        (await repository.findEntity(to)) === null
+      ) {
+        return null;
+      }
+
+      return findShortestPath(relations, from, to, resolved);
+    },
   };
 
   return repository;

@@ -59,5 +59,8 @@ export async function createMemgraphGraphRepository(
 
     getEntityNeighbourhood: (entity, options) =>
       getEntityNeighbourhood(connection, entity, options),
+
+    getShortestPath: () =>
+      Promise.reject(new Error("getShortestPath is not built in Memgraph yet")),
   };
 }
