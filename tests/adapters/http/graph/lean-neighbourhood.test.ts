@@ -89,3 +89,56 @@ test("an origin without attributes has an empty list", () => {
   assert.deepEqual(toLeanNeighbourhood(alone).origin.attributes, []);
   assert.deepEqual(toLeanNeighbourhood(alone).entities, []);
 });
+
+test("in a page after the first the origin is only its type and value, and is not in the entities", () => {
+  const secondPage = createEntityNeighbourhood({
+    origin,
+    hops: 2,
+    maxEntities: 1,
+    offset: 1,
+    reached: [
+      { entity: origin, distance: 0 },
+      { entity: domain, distance: 1 },
+      { entity: port, distance: 1 },
+    ],
+    relations: [createRelation({ source: origin, target: domain, provenance })],
+    attributes: [
+      createAttribute({ entity: origin, name: "GEOINFO", values: ["x"], provenance }),
+      createAttribute({ entity: domain, name: "NOTE", values: ["y"], provenance }),
+    ],
+  });
+
+  const lean = toLeanNeighbourhood(secondPage);
+
+  assert.deepEqual(lean.origin, { type: "IP_ADDRESS", value: "104.21.2.94" });
+  assert.deepEqual(lean.entities, [{ type: "INTERNET_NAME", value: "example.com", distance: 1 }]);
+  assert.equal(lean.offset, 1);
+  assert.equal(lean.nextOffset, 2);
+  assert.equal(lean.truncated, true);
+});
+
+test("the first page carries its offset, and the next one when more entities remain", () => {
+  const firstPage = createEntityNeighbourhood({
+    origin,
+    hops: 2,
+    maxEntities: 2,
+    offset: 0,
+    reached: [
+      { entity: origin, distance: 0 },
+      { entity: domain, distance: 1 },
+      { entity: port, distance: 1 },
+    ],
+    relations: [],
+    attributes: [],
+  });
+
+  const lean = toLeanNeighbourhood(firstPage);
+
+  assert.equal(lean.offset, 0);
+  assert.equal(lean.nextOffset, 2);
+  assert.deepEqual(lean.origin.attributes, []);
+});
+
+test("the last page has no next offset", () => {
+  assert.equal("nextOffset" in toLeanNeighbourhood(neighbourhood), false);
+});

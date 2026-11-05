@@ -19,10 +19,11 @@ import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
 
-// What the caller is told when the neighbourhood was cut by `maxEntities`. It names URL parameters, which
-// is why it is written here and not in the core.
-const TRUNCATED_HINT =
-  "More entities exist than maxEntities; ask again with a bigger maxEntities and a bigger timeoutMs to get them";
+// What the caller is told when more entities exist after the page: where the next page starts, or how to
+// get them all in one answer. It names URL parameters, which is why it is written here and not in the core.
+function truncatedHint(nextOffset: number | undefined): string {
+  return `More entities exist after this page; ask for the next page with offset=${nextOffset}, or ask again with a bigger maxEntities and a bigger timeoutMs to get them in one answer`;
+}
 
 // Controller of the graph routes: translates HTTP into a call to the service and the service's result
 // (or error) back into HTTP. It holds no business rule.
@@ -91,10 +92,10 @@ export function createGraphController(service: GraphService) {
 
     // The entities within some relations of one entity. The three validation middlewares have already
     // left the entity, the neighbourhood request (options and detail) and the time limit in
-    // `response.locals`. Answers 200 with the lean neighbourhood, or the full one when `detail=full`, plus
-    // a `hint` when it was cut; 404 when nothing mentions the entity; 400 when the domain finds the type
-    // or value blank or the core refuses hops or maxEntities; 504 when the read ran out of time. Any
-    // other error is ours (500).
+    // `response.locals`. Answers 200 with one page of the lean neighbourhood, or of the full one when
+    // `detail=full`, plus a `hint` when more entities exist after the page; 404 when nothing mentions the
+    // entity; 400 when the domain finds the type or value blank or the core refuses hops, maxEntities or an
+    // offset past the end; 504 when the read ran out of time. Any other error is ours (500).
     getEntityNeighbourhood: async (_request: Request, response: Response): Promise<void> => {
       const { type, value } = response.locals[ENTITY_QUERY_KEY] as EntityQuery;
       const { options: neighbourhoodOptions, detail } = response.locals[
@@ -117,7 +118,11 @@ export function createGraphController(service: GraphService) {
 
         response
           .status(constants.HTTP_STATUS_OK)
-          .json(neighbourhood.truncated ? { ...answer, hint: TRUNCATED_HINT } : answer);
+          .json(
+            neighbourhood.truncated
+              ? { ...answer, hint: truncatedHint(neighbourhood.nextOffset) }
+              : answer,
+          );
       } catch (error) {
         if (
           error instanceof InvalidEntityError ||

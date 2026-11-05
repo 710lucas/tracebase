@@ -71,10 +71,12 @@ function getNeighbourhood(query: string) {
 const ORIGIN = "type=DOMAIN_NAME&value=a.example.com";
 
 interface LeanBody {
-  origin: { type: string; value: string; attributes: { name: string; values: string[] }[] };
+  origin: { type: string; value: string; attributes?: { name: string; values: string[] }[] };
   hops: number;
   maxEntities: number;
+  offset: number;
   truncated: boolean;
+  nextOffset?: number;
   hint?: string;
   entities: { type: string; value: string; distance: number }[];
   relations: { source: { value: string }; target: { value: string }; type?: string }[];
@@ -191,12 +193,25 @@ test("answers 400 with the domain's reason when the value is blank", async () =>
   assert.match(((await response.json()) as { error: string }).error, /value must not be blank/);
 });
 
-for (const query of ["hops=abc", "hops=1.5", "hops=-1", "maxEntities=x", "hops=1&hops=2"]) {
+for (const query of [
+  "hops=abc",
+  "hops=1.5",
+  "hops=-1",
+  "maxEntities=x",
+  "offset=abc",
+  "offset=-1",
+  "offset=1.5",
+  "hops=1&hops=2",
+  "offset=1&offset=2",
+]) {
   test(`answers 400 for "${query}"`, async () => {
     const response = await getNeighbourhood(`${ORIGIN}&${query}`);
 
     assert.equal(response.status, 400);
-    assert.match(((await response.json()) as { error: string }).error, /hops and maxEntities/);
+    assert.match(
+      ((await response.json()) as { error: string }).error,
+      /hops, maxEntities and offset/,
+    );
   });
 }
 
@@ -218,6 +233,77 @@ for (const query of ["hops=0", "maxEntities=0"]) {
     );
   });
 }
+
+test("answers 400 with the number of entities when the offset is past the end", async () => {
+  const response = await getNeighbourhood(`${ORIGIN}&offset=4`);
+
+  assert.equal(response.status, 400);
+  assert.match(
+    ((await response.json()) as { error: string }).error,
+    /offset 4 is past the end: the neighbourhood has 4 entities/,
+  );
+});
+
+test("the pages, read one after the other, give every entity and every relation once", async () => {
+  const entities: string[] = [];
+  const relations: string[] = [];
+  const pages: LeanBody[] = [];
+  let offset: number | undefined = 0;
+  while (offset !== undefined) {
+    const page = (await (
+      await getNeighbourhood(`${ORIGIN}&maxEntities=2&offset=${offset}`)
+    ).json()) as LeanBody;
+    pages.push(page);
+    entities.push(...page.entities.map(({ value }) => value));
+    relations.push(
+      ...page.relations.map(({ source, target }) => `${source.value}>${target.value}`),
+    );
+    offset = page.nextOffset;
+  }
+
+  assert.equal(pages.length, 2);
+  assert.deepEqual(entities, ["b.example.com", "c.example.com", "d.example.com"]);
+  assert.deepEqual(relations.sort(), [
+    "a.example.com>b.example.com",
+    "b.example.com>c.example.com",
+    "c.example.com>d.example.com",
+  ]);
+  assert.deepEqual(
+    pages.map((page) => [page.offset, page.truncated]),
+    [
+      [0, true],
+      [2, false],
+    ],
+  );
+});
+
+test("the origin has its attributes in the first page and only type and value after it", async () => {
+  const origin = "type=DOMAIN_NAME&value=b.example.com";
+  const first = (await (await getNeighbourhood(`${origin}&maxEntities=2`)).json()) as LeanBody;
+  const second = (await (
+    await getNeighbourhood(`${origin}&maxEntities=2&offset=2`)
+  ).json()) as LeanBody;
+
+  assert.deepEqual(first.origin.attributes, [{ name: "WEBSERVER_BANNER", values: ["nginx"] }]);
+  assert.deepEqual(second.origin, { type: "DOMAIN_NAME", value: "b.example.com" });
+});
+
+test("the hint names the next page when the answer was cut", async () => {
+  const body = (await (await getNeighbourhood(`${ORIGIN}&maxEntities=2`)).json()) as LeanBody;
+
+  assert.equal(body.nextOffset, 2);
+  assert.match(body.hint ?? "", /offset=2/);
+});
+
+test("the full answer carries the offset and the next one too", async () => {
+  const body = (await (await getNeighbourhood(`${ORIGIN}&maxEntities=2&detail=full`)).json()) as {
+    offset: number;
+    nextOffset?: number;
+  };
+
+  assert.equal(body.offset, 0);
+  assert.equal(body.nextOffset, 2);
+});
 
 test("answers 400 for a time limit that is not a whole number from 1", async () => {
   assert.equal((await getNeighbourhood(`${ORIGIN}&timeoutMs=0`)).status, 400);

@@ -1,7 +1,4 @@
-import type {
-  EntityNeighbourhood,
-  NeighbourhoodEntity,
-} from "../../../core/ports/graph-repository/index.ts";
+import type { EntityNeighbourhood } from "../../../core/ports/graph-repository/index.ts";
 
 // A neighbourhood reduced to what an AI (or a person) needs to see its shape: who is near, at which
 // distance, and who is linked to whom, without the provenance of each relation and without the
@@ -10,16 +7,24 @@ import type {
 // caller asks for the full one.
 //
 // The relations name their two ends in full instead of pointing at positions in `entities`: each one can
-// be read on its own, which is what keeps them valid when a neighbourhood comes in several answers.
+// be read on its own, which is what keeps them valid when a neighbourhood comes in several answers (pages).
+//
+// The origin is in the first page only, so only the first page gives its attributes; in a later page the
+// `origin` is just its type and value, to say whose neighbourhood it is.
 export interface LeanNeighbourhood {
   readonly origin: {
     readonly type: string;
     readonly value: string;
-    readonly attributes: readonly { name: string; values: readonly string[]; qualifier?: string }[];
+    readonly attributes?: readonly {
+      name: string;
+      values: readonly string[];
+      qualifier?: string;
+    }[];
   };
   readonly hops: number;
   readonly maxEntities: number;
-  // Every entity reached except the origin, nearest first.
+  readonly offset: number;
+  // The entities of this page except the origin, nearest first.
   readonly entities: readonly { type: string; value: string; distance: number }[];
   readonly relations: readonly {
     source: { type: string; value: string };
@@ -27,26 +32,30 @@ export interface LeanNeighbourhood {
     type?: string;
   }[];
   readonly truncated: boolean;
+  readonly nextOffset?: number;
 }
 
 export function toLeanNeighbourhood(neighbourhood: EntityNeighbourhood): LeanNeighbourhood {
-  const [origin, ...others] = neighbourhood.entities as [
-    NeighbourhoodEntity,
-    ...NeighbourhoodEntity[],
-  ];
+  // The origin is the first entity of the first page and in no other page.
+  const isFirstPage = neighbourhood.offset === 0;
+  const [originEntry, ...restOfFirstPage] = neighbourhood.entities;
+  const others = isFirstPage ? restOfFirstPage : neighbourhood.entities;
 
   return {
     origin: {
-      type: origin.entity.type,
-      value: origin.entity.value,
-      attributes: origin.attributes.map(({ name, values, qualifier }) => ({
-        name,
-        values,
-        ...(qualifier !== undefined && { qualifier }),
-      })),
+      type: neighbourhood.origin.type,
+      value: neighbourhood.origin.value,
+      ...(isFirstPage && {
+        attributes: (originEntry?.attributes ?? []).map(({ name, values, qualifier }) => ({
+          name,
+          values,
+          ...(qualifier !== undefined && { qualifier }),
+        })),
+      }),
     },
     hops: neighbourhood.hops,
     maxEntities: neighbourhood.maxEntities,
+    offset: neighbourhood.offset,
     entities: others.map(({ entity, distance }) => ({
       type: entity.type,
       value: entity.value,
@@ -58,5 +67,6 @@ export function toLeanNeighbourhood(neighbourhood: EntityNeighbourhood): LeanNei
       ...(type !== undefined && { type }),
     })),
     truncated: neighbourhood.truncated,
+    ...(neighbourhood.nextOffset !== undefined && { nextOffset: neighbourhood.nextOffset }),
   };
 }

@@ -19,19 +19,20 @@ export interface NeighbourhoodRequest {
 
 const DEFAULT_DETAIL: NeighbourhoodDetail = "lean";
 
-// Middleware of the neighbourhood route: `hops` and `maxEntities` are optional and each must be a plain
-// run of digits, given once; `detail` is optional and is `lean` or `full`, given once. If not, it answers
-// 400 itself and the controller never runs. Whether a number is usable (from 1) is decided later by the
-// core, when the repository resolves the options.
+// Middleware of the neighbourhood route: `hops`, `maxEntities` and `offset` are optional and each must be a
+// plain run of digits, given once; `detail` is optional and is `lean` or `full`, given once. If not, it answers
+// 400 itself and the controller never runs. Whether a number is usable (`hops` and `maxEntities` from 1) and whether the
+// `offset` is not past the end are decided later by the core, when the repository resolves the options.
 export const validateNeighbourhoodRequest: RequestHandler = (request, response, next) => {
-  const { hops, maxEntities, detail } = request.query;
+  const { hops, maxEntities, offset, detail } = request.query;
 
   const parsedHops = parseWholeNumber(hops);
   const parsedMaxEntities = parseWholeNumber(maxEntities);
-  if (parsedHops === null || parsedMaxEntities === null) {
+  const parsedOffset = parseWholeNumber(offset);
+  if (parsedHops === null || parsedMaxEntities === null || parsedOffset === null) {
     response
       .status(constants.HTTP_STATUS_BAD_REQUEST)
-      .json({ error: "hops and maxEntities are whole numbers, each given once" });
+      .json({ error: "hops, maxEntities and offset are whole numbers, each given once" });
     return;
   }
   if (detail !== undefined && detail !== "lean" && detail !== "full") {
@@ -45,6 +46,7 @@ export const validateNeighbourhoodRequest: RequestHandler = (request, response, 
     options: {
       ...(parsedHops !== undefined && { hops: parsedHops }),
       ...(parsedMaxEntities !== undefined && { maxEntities: parsedMaxEntities }),
+      ...(parsedOffset !== undefined && { offset: parsedOffset }),
     },
     detail: detail ?? DEFAULT_DETAIL,
   };
