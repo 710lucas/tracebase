@@ -4,6 +4,8 @@ import type { Relation } from "../../domain/relation/index.ts";
 import type { EntityDegree } from "./entity-degree.ts";
 import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
 import type { NeighbourhoodOptions } from "./neighbourhood-options.ts";
+import type { EntitySearchPage } from "./entity-search.ts";
+import type { SearchOptions } from "./search-options.ts";
 import type { ShortestPath } from "./shortest-path.ts";
 import type { ShortestPathOptions } from "./shortest-path-options.ts";
 import type {
@@ -73,6 +75,13 @@ export interface EntityFindings {
 // answers `null` when either entity is not in the graph, and an empty path (not an error) when both are but
 // no path exists within `maxHops`. Among paths of the same length the answer is always the same one. An
 // invalid `maxHops` fails with `InvalidShortestPathOptionsError`.
+//
+// `searchEntities` is the fourth (see `entity-search.ts`): the entities whose value, or whose current
+// attribute values (scope `full`, the default), contain a text, ignoring case. It answers one page of
+// results, each with where it matched and a snippet, with `limit` (default 50), `offset`, `maxMatches` per
+// entity (default 100) and `snippetLength` (default 200) changeable per call. It never answers `null`: a
+// search that finds nothing is an empty page. A text without a character, an unknown scope or a number that
+// makes no sense fail with `InvalidSearchError`, and so does an `offset` past the end of the results.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -90,4 +99,5 @@ export interface GraphRepository {
     to: Entity,
     options?: QueryOptions & ShortestPathOptions,
   ): Promise<ShortestPath | null>;
+  searchEntities(text: string, options?: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
 }

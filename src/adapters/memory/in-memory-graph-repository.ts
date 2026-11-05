@@ -4,11 +4,13 @@ import type { Relation } from "../../core/domain/relation/index.ts";
 import {
   createEntityDegree,
   resolveNeighbourhoodOptions,
+  resolveSearch,
   resolveShortestPathOptions,
   type GraphRepository,
 } from "../../core/ports/graph-repository/index.ts";
 import { findNeighbourhood } from "./find-neighbourhood.ts";
 import { findShortestPath } from "./find-shortest-path.ts";
+import { searchInMemory } from "./search-entities.ts";
 import {
   collectEntities,
   countEntityTypes,
@@ -112,6 +114,11 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
 
       return findShortestPath(relations, from, to, resolved);
     },
+
+    // Like the others, it takes the time limit of `QueryOptions` and ignores it: reading two lists in
+    // memory ends in milliseconds. The text and the options are checked by the port's own rule.
+    searchEntities: async (text, options) =>
+      searchInMemory(relations, attributes, resolveSearch(text, options)),
   };
 
   return repository;

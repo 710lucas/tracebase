@@ -62,5 +62,7 @@ export async function createMemgraphGraphRepository(
       getEntityNeighbourhood(connection, entity, options),
 
     getShortestPath: (from, to, options) => getShortestPath(connection, from, to, options),
+
+    searchEntities: () => Promise.reject(new Error("searchEntities is not built in Memgraph yet")),
   };
 }
