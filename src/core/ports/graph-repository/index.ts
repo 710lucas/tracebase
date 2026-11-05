@@ -40,6 +40,18 @@ export {
 } from "./shortest-path-options.ts";
 export type { ResolvedShortestPathOptions, ShortestPathOptions } from "./shortest-path-options.ts";
 export { InvalidShortestPathOptionsError } from "./invalid-shortest-path-options-error.ts";
+export {
+  DEFAULT_SEARCH_LIMIT,
+  DEFAULT_SEARCH_MAX_MATCHES,
+  DEFAULT_SEARCH_OFFSET,
+  DEFAULT_SEARCH_SCOPE,
+  DEFAULT_SEARCH_SNIPPET_LENGTH,
+  SEARCH_SCOPES,
+  resolveSearch,
+} from "./search-options.ts";
+export type { ResolvedSearch, SearchOptions, SearchScope } from "./search-options.ts";
+export { InvalidSearchError } from "./invalid-search-error.ts";
+export { createSnippet, indexOfText } from "./search-text.ts";
 export { createRunSummaries } from "./run-summaries.ts";
 export type { RunItemKind, RunSummaries } from "./run-summaries.ts";
 export type {
