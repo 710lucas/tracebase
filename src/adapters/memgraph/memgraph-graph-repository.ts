@@ -65,5 +65,9 @@ export async function createMemgraphGraphRepository(
     getShortestPath: (from, to, options) => getShortestPath(connection, from, to, options),
 
     searchEntities: (text, options) => searchEntities(connection, text, options),
+
+    queryEntities: async () => {
+      throw new Error("queryEntities is not built in Memgraph yet");
+    },
   };
 }

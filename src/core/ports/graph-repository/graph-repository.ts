@@ -4,6 +4,8 @@ import type { Relation } from "../../domain/relation/index.ts";
 import type { EntityDegree } from "./entity-degree.ts";
 import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
 import type { NeighbourhoodOptions } from "./neighbourhood-options.ts";
+import type { EntityQuery } from "./entity-query-options.ts";
+import type { EntityQueryAnswer } from "./entity-query-result.ts";
 import type { EntitySearchPage } from "./entity-search.ts";
 import type { SearchOptions } from "./search-options.ts";
 import type { ShortestPath } from "./shortest-path.ts";
@@ -82,6 +84,15 @@ export interface EntityFindings {
 // entity (default 100) and `snippetLength` (default 200) changeable per call. It never answers `null`: a
 // search that finds nothing is an empty page. A text without a character, an unknown scope or a number that
 // makes no sense fail with `InvalidSearchError`, and so does an `offset` past the end of the results.
+//
+// `queryEntities` is the fifth (see `entity-query-options.ts` and `entity-query-result.ts`): the entities that
+// meet ALL the conditions of a structured query (types, a condition on the value, conditions on attributes,
+// a provenance filter; none at all is the whole graph). In the mode `list` (the default) it answers one page
+// ordered by value and then by type, with the snippets of the attribute conditions that have a text; in the
+// mode `count`, the total and the count by type. `limit` (default 50), `offset`, `snippetLength` (default
+// 200) and `includeHistory` are changeable per call. A query that finds nothing is an empty page or a zero
+// count. A query that makes no sense fails with `InvalidEntityQueryError`, and so does an `offset` past the
+// end of the results.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -100,4 +111,5 @@ export interface GraphRepository {
     options?: QueryOptions & ShortestPathOptions,
   ): Promise<ShortestPath | null>;
   searchEntities(text: string, options?: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
+  queryEntities(query?: EntityQuery, options?: QueryOptions): Promise<EntityQueryAnswer>;
 }
