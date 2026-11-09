@@ -4,6 +4,7 @@ import { createEntity } from "../../../../src/core/domain/entity/index.ts";
 import {
   InvalidEntityQueryError,
   createEntityQueryCounts,
+  createEntityQueryCountsByType,
   createEntityQueryPage,
   resolveEntityQuery,
   type EntityQuery,
@@ -175,6 +176,26 @@ test("counts the entities in all and by type, the type with the most first and t
       { type: "D_TYPE", count: 1 },
     ],
   });
+});
+
+test("counts already grouped by type give the same answer, in any order they come", () => {
+  assert.deepEqual(
+    createEntityQueryCountsByType([
+      { type: "B_TYPE", count: 1 },
+      { type: "A_TYPE", count: 2 },
+      { type: "C_TYPE", count: 2 },
+    ]),
+    {
+      mode: "count",
+      total: 5,
+      byType: [
+        { type: "A_TYPE", count: 2 },
+        { type: "C_TYPE", count: 2 },
+        { type: "B_TYPE", count: 1 },
+      ],
+    },
+  );
+  assert.deepEqual(createEntityQueryCountsByType([]), { mode: "count", total: 0, byType: [] });
 });
 
 test("counts nothing as zero in all and no types", () => {

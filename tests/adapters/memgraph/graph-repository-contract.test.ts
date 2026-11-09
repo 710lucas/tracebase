@@ -8,6 +8,7 @@ import { createMemgraphGraphRepository } from "../../../src/adapters/memgraph/me
 import { testGraphRepositoryContract } from "../../core/ports/graph-repository/graph-repository-contract.ts";
 import { testNeighbourhoodPagesContract } from "../../core/ports/graph-repository/neighbourhood-pages-contract.ts";
 import { testShortestPathContract } from "../../core/ports/graph-repository/shortest-path-contract.ts";
+import { testEntityQueryContract } from "../../core/ports/graph-repository/entity-query-contract.ts";
 import { testSearchContract } from "../../core/ports/graph-repository/search-contract.ts";
 import { testNeighbourhoodContract } from "../../core/ports/graph-repository/neighbourhood-contract.ts";
 
@@ -57,3 +58,4 @@ testNeighbourhoodContract(contractOptions);
 testNeighbourhoodPagesContract(contractOptions);
 testShortestPathContract(contractOptions);
 testSearchContract(contractOptions);
+testEntityQueryContract(contractOptions);

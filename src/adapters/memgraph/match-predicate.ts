@@ -5,8 +5,8 @@ import type { MatchMode } from "../../core/ports/graph-repository/index.ts";
 // - `exact`: `value = $text`;
 // - `contains`: `value CONTAINS $text`;
 // - `insensitive`: `value =~ $pattern`, a regular expression that matches a value having the text inside it,
-//   with every letter of the text written as the class of all the forms of that letter (`é` becomes
-//   `[eEéÉèÈêÊëË...]`), so case and accents are ignored in both directions.
+//   with every letter of the text written as all the forms of that letter (`é` becomes
+//   `(?:[eE]|é|è|ê|ë|É|È|Ê|Ë...)`), so case and accents are ignored in both directions.
 //
 // A regular expression is used for `insensitive` because Memgraph has no function for it: `toLower` only changes
 // the ASCII letters (`toLower('CAFÉ')` is `'cafÉ'`), `(?i)` is not supported and no function removes accents.
@@ -20,14 +20,33 @@ export interface MatchPredicate {
   readonly parameters: Readonly<Record<string, string>>;
 }
 
-export function createMatchPredicate(text: string, match: MatchMode): MatchPredicate {
+// A query with several text conditions needs a parameter for each: `parameterPrefix` puts a word before the
+// names (`text` becomes `valueText` with the prefix `value`), so the conditions do not share a parameter.
+export function createMatchPredicate(
+  text: string,
+  match: MatchMode,
+  parameterPrefix?: string,
+): MatchPredicate {
+  const textName = parameterName("text", parameterPrefix);
+  const patternName = parameterName("pattern", parameterPrefix);
+
   if (match === "exact") {
-    return { condition: (value) => `${value} = $text`, parameters: { text } };
+    return { condition: (value) => `${value} = $${textName}`, parameters: { [textName]: text } };
   }
   if (match === "contains") {
-    return { condition: (value) => `${value} CONTAINS $text`, parameters: { text } };
+    return {
+      condition: (value) => `${value} CONTAINS $${textName}`,
+      parameters: { [textName]: text },
+    };
   }
-  return { condition: (value) => `${value} =~ $pattern`, parameters: { pattern: toPattern(text) } };
+  return {
+    condition: (value) => `${value} =~ $${patternName}`,
+    parameters: { [patternName]: toPattern(text) },
+  };
+}
+
+function parameterName(base: string, prefix: string | undefined): string {
+  return prefix === undefined ? base : `${prefix}${base[0]?.toUpperCase()}${base.slice(1)}`;
 }
 
 // The regular expression for a value that has the text inside. `[\s\S]` is "any character, line breaks

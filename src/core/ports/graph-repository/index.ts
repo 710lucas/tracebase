@@ -69,7 +69,11 @@ export type {
   ValueCondition,
 } from "./entity-query-options.ts";
 export { InvalidEntityQueryError } from "./invalid-entity-query-error.ts";
-export { createEntityQueryCounts, createEntityQueryPage } from "./entity-query-result.ts";
+export {
+  createEntityQueryCounts,
+  createEntityQueryCountsByType,
+  createEntityQueryPage,
+} from "./entity-query-result.ts";
 export type {
   EntityQueryAnswer,
   EntityQueryCounts,

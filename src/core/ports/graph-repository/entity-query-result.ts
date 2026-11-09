@@ -109,12 +109,19 @@ export function createEntityQueryCounts(entities: readonly Entity[]): EntityQuer
     counts.set(type, (counts.get(type) ?? 0) + 1);
   }
 
+  return createEntityQueryCountsByType([...counts].map(([type, count]) => ({ type, count })));
+}
+
+// The same answer from counts that a database already grouped by type, one for each type, in any order.
+export function createEntityQueryCountsByType(
+  byType: readonly EntityTypeCount[],
+): EntityQueryCounts {
   return {
     mode: "count",
-    total: entities.length,
-    byType: [...counts]
-      .map(([type, count]) => ({ type, count }))
-      .sort((first, second) => second.count - first.count || compareText(first.type, second.type)),
+    total: byType.reduce((total, { count }) => total + count, 0),
+    byType: [...byType].sort(
+      (first, second) => second.count - first.count || compareText(first.type, second.type),
+    ),
   };
 }
 

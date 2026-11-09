@@ -30,6 +30,16 @@ test("insensitive asks the value against a pattern", () => {
   assert.deepEqual(Object.keys(predicate.parameters), ["pattern"]);
 });
 
+test("a parameter prefix puts a word before the names of the parameters", () => {
+  const exact = createMatchPredicate("x", "exact", "value");
+  const insensitive = createMatchPredicate("x", "insensitive", "attribute0");
+
+  assert.equal(exact.condition("n.value"), "n.value = $valueText");
+  assert.deepEqual(exact.parameters, { valueText: "x" });
+  assert.equal(insensitive.condition("candidate"), "candidate =~ $attribute0Pattern");
+  assert.deepEqual(Object.keys(insensitive.parameters), ["attribute0Pattern"]);
+});
+
 test("the pattern ignores case and accents in both directions", () => {
   assert.equal(matches("café", "um CAFÉ bom"), true);
   assert.equal(matches("café", "um cafe bom"), true);
