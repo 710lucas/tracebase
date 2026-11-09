@@ -34,6 +34,33 @@ test("a client connects, and the server says its name", async () => {
   await client.close();
 });
 
+test("the server gives its instructions to the client, and they name every tool", async () => {
+  const client = await app.connect();
+
+  const instructions = client.getInstructions() ?? "";
+  const { tools } = await client.listTools();
+
+  assert.match(instructions, /OSINT knowledge graph/);
+  assert.equal(tools.length, 7);
+  for (const { name } of tools) {
+    assert.ok(instructions.includes(name), `the instructions do not name ${name}`);
+  }
+  await client.close();
+});
+
+test("every tool has a title, a description and an input schema that closes the object", async () => {
+  const client = await app.connect();
+
+  const { tools } = await client.listTools();
+
+  for (const tool of tools) {
+    assert.ok(tool.title, `${tool.name} has no title`);
+    assert.ok((tool.description ?? "").length > 80, `${tool.name} has a short description`);
+    assert.equal(tool.inputSchema.additionalProperties, false, tool.name);
+  }
+  await client.close();
+});
+
 test("the tools are listed with their description, their input and that they only read", async () => {
   const client = await app.connect();
 
