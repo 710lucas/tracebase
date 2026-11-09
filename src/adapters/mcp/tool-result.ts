@@ -20,6 +20,11 @@ export function toolError(message: string): CallToolResult {
   return { isError: true, content: [{ type: "text", text: message }] };
 }
 
+// What the AI is told when it asks about an entity that nothing in the graph mentions.
+export function entityNotFound(type: string, value: string): CallToolResult {
+  return toolError(`No entity of type ${type} with value ${value} is in the graph.`);
+}
+
 // The errors the core raises for a call that cannot be answered as asked. Each one's message already says what
 // is wrong, so it is passed on as it is.
 const ERRORS_FOR_THE_CALLER = [

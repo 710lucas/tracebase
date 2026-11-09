@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
+import { registerFindEntityTool } from "./tools/find-entity.ts";
 import { registerGetEntityDegreeTool } from "./tools/get-entity-degree.ts";
+import { registerGetEntityNeighbourhoodTool } from "./tools/get-entity-neighbourhood.ts";
+import { registerListEntityTypesTool } from "./tools/list-entity-types.ts";
 
 const SERVER_NAME = "tracebase";
 const SERVER_VERSION = "0.1.0";
@@ -10,7 +13,10 @@ const SERVER_VERSION = "0.1.0";
 export function createMcpServer(repository: GraphRepository): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
 
+  registerListEntityTypesTool(server, repository);
+  registerFindEntityTool(server, repository);
   registerGetEntityDegreeTool(server, repository);
+  registerGetEntityNeighbourhoodTool(server, repository);
 
   return server;
 }

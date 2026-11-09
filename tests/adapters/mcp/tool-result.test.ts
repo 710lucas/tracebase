@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runTool, toolAnswer, toolError } from "../../../src/adapters/mcp/tool-result.ts";
+import {
+  entityNotFound,
+  runTool,
+  toolAnswer,
+  toolError,
+} from "../../../src/adapters/mcp/tool-result.ts";
 import { InvalidEntityError } from "../../../src/core/domain/entity/index.ts";
 import {
   InvalidEntityQueryError,
@@ -62,4 +67,13 @@ test("an error that is ours is not hidden: it goes on", async () => {
     }),
     /the database is gone/,
   );
+});
+
+test("an entity that is not there is an error that names the type and the value", () => {
+  assert.deepEqual(entityNotFound("IP_ADDRESS", "10.9.9.9"), {
+    isError: true,
+    content: [
+      { type: "text", text: "No entity of type IP_ADDRESS with value 10.9.9.9 is in the graph." },
+    ],
+  });
 });
