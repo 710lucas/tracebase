@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import type { CypherReader } from "../../core/ports/cypher-reader/index.ts";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
 import { createMcpRouter } from "../mcp/router.ts";
 import { createGraphRouter } from "./graph/router.ts";
@@ -17,6 +18,8 @@ const MCP_MOUNT_PATH = "/mcp";
 // configured (for the status route) and, optionally, the folder with the built front end.
 export interface AppDependencies {
   graphRepository: GraphRepository;
+  // What answers Cypher written by the AI (the plan B). Without it the MCP server has no Cypher tool.
+  cypherReader?: CypherReader;
   runtimeInfo: RuntimeInfo;
   // The folder `web/` builds into. Without it the application is only an API.
   webRoot?: string;
@@ -30,7 +33,12 @@ export interface AppDependencies {
 // The front end's files come after the API routes, so a route always wins over a file of the same path,
 // and before the fallback. The front end keeps its own screens in the URL fragment (`#/imports`), so
 // the server never has to answer a path other than `/` and the files themselves.
-export function createApp({ graphRepository, runtimeInfo, webRoot }: AppDependencies): Express {
+export function createApp({
+  graphRepository,
+  cypherReader,
+  runtimeInfo,
+  webRoot,
+}: AppDependencies): Express {
   const app = express();
   app.use(IMPORTS_MOUNT_PATH, createImportsRouter(graphRepository));
 
@@ -38,7 +46,7 @@ export function createApp({ graphRepository, runtimeInfo, webRoot }: AppDependen
 
   app.use(STATUS_MOUNT_PATH, createStatusRouter(graphRepository, runtimeInfo));
 
-  app.use(MCP_MOUNT_PATH, createMcpRouter(graphRepository));
+  app.use(MCP_MOUNT_PATH, createMcpRouter(graphRepository, cypherReader));
 
   if (webRoot !== undefined) {
     app.use(express.static(webRoot));

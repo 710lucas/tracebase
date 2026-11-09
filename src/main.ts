@@ -16,7 +16,11 @@ const memgraphUrl = process.env["MEMGRAPH_URL"];
 const webRoot = fileURLToPath(new URL("../web/dist", import.meta.url));
 const webIsBuilt = existsSync(webRoot);
 
-const { repository: graphRepository, close: closeGraphRepository } = await createGraphRepository({
+const {
+  repository: graphRepository,
+  cypherReader,
+  close: closeGraphRepository,
+} = await createGraphRepository({
   ...(memgraphUrl !== undefined && { memgraphUrl }),
   ...(process.env["MEMGRAPH_USER"] !== undefined && { memgraphUser: process.env["MEMGRAPH_USER"] }),
   ...(process.env["MEMGRAPH_PASSWORD"] !== undefined && {
@@ -26,6 +30,7 @@ const { repository: graphRepository, close: closeGraphRepository } = await creat
 
 const app = createApp({
   graphRepository,
+  ...(cypherReader !== undefined && { cypherReader }),
   runtimeInfo: memgraphUrl ? { storage: "memgraph", memgraphUrl } : { storage: "memory" },
   ...(webIsBuilt && { webRoot }),
 });

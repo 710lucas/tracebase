@@ -1,5 +1,6 @@
 import neo4j from "neo4j-driver";
 import { QueryTimeoutError } from "../../core/ports/graph-repository/index.ts";
+import { toPlainValue } from "./to-plain-value.ts";
 
 export const DEFAULT_MEMGRAPH_URL = "bolt://localhost:7687";
 
@@ -24,15 +25,28 @@ export interface RunOptions {
   readonly timeoutMs?: number;
 }
 
+// The rows of a query asked of `runReadOnly`: the names of the columns (known even when there is no row) and
+// the rows as plain objects (nodes, relations and paths already turned into data by `toPlainValue`).
+export interface ReadOnlyRows {
+  readonly columns: string[];
+  readonly rows: Record<string, unknown>[];
+}
+
 // What the Memgraph adapter needs from the database: run a Cypher query and read the rows back as
 // plain objects, or run several queries that either all happen or none does. The driver's own types
 // (sessions, transactions, records, integers) stay inside this file.
+//
+// `runReadOnly` is for a query the adapter did not write (the plan B): it runs in an EXPLICIT transaction of a
+// session opened for reading, the only way that makes Memgraph refuse every write and every administrative
+// command, stop at the time limit and report a memory limit at once (measured on 2026-11-09,
+// `docs/memgraph.md`). The time limit is required: such a query gets no default.
 export interface MemgraphConnection {
   run(
     query: string,
     parameters?: Record<string, unknown>,
     options?: RunOptions,
   ): Promise<Record<string, unknown>[]>;
+  runReadOnly(query: string, timeoutMs: number): Promise<ReadOnlyRows>;
   runInTransaction(statements: readonly CypherStatement[]): Promise<void>;
   close(): Promise<void>;
 }
@@ -76,6 +90,30 @@ export async function connectToMemgraph(config: MemgraphConfig): Promise<Memgrap
       }
     },
 
+    runReadOnly: async (query, timeoutMs) => {
+      const session = driver.session({ defaultAccessMode: neo4j.session.READ });
+
+      try {
+        const transaction = session.beginTransaction({ timeout: timeoutMs });
+
+        try {
+          const pending = transaction.run(query);
+          const [columns, result] = await Promise.all([pending.keys(), pending]);
+          await transaction.commit();
+
+          return {
+            columns,
+            rows: result.records.map((record) => toPlainObject(record.toObject())),
+          };
+        } catch (error) {
+          await transaction.rollback().catch(() => {});
+          throw isTransactionTimeout(error) ? new QueryTimeoutError(timeoutMs) : error;
+        }
+      } finally {
+        await session.close();
+      }
+    },
+
     // If any query fails, the transaction is rolled back and nothing it did stays in the database.
     runInTransaction: async (statements) => {
       const session = driver.session();
@@ -93,6 +131,10 @@ export async function connectToMemgraph(config: MemgraphConfig): Promise<Memgrap
 
     close: () => driver.close(),
   };
+}
+
+function toPlainObject(row: Record<string, unknown>): Record<string, unknown> {
+  return toPlainValue(row) as Record<string, unknown>;
 }
 
 // Memgraph reports a query cancelled by its time limit as a transient error with this text. Matching the

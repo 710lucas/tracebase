@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { createGraphRepository } from "../src/create-graph-repository.ts";
 import { DEFAULT_MEMGRAPH_URL } from "../src/adapters/memgraph/memgraph-connection.ts";
@@ -8,6 +8,12 @@ test("keeps the graph in memory when no Memgraph address is given", async () => 
   const { repository } = await createGraphRepository({});
 
   assert.equal(await repository.findEntity(createEntity("IP_ADDRESS", "1.1.1.1")), null);
+});
+
+test("the memory repository has no Cypher reader", async () => {
+  const opened = await createGraphRepository({});
+
+  assert.equal(opened.cypherReader, undefined);
 });
 
 test("treats an empty address as no address", async () => {
@@ -69,7 +75,13 @@ test(
   "keeps the graph in Memgraph when it answers, and close ends the connection",
   { skip: skipWithoutMemgraph },
   async () => {
-    const { repository, close } = memgraph as NonNullable<typeof memgraph>;
+    const { repository, cypherReader, close } = memgraph as NonNullable<typeof memgraph>;
+
+    // Memgraph answers Cypher, so it has a reader, and it shares the connection that `close` ends.
+    const silencedLog = mock.method(console, "log", () => {});
+    const rows = await cypherReader?.readCypher("RETURN 1 AS one");
+    silencedLog.mock.restore();
+    assert.deepEqual(rows?.rows, [{ one: 1 }]);
 
     // A value that no real scan has, so a Memgraph with data answers null for it too.
     assert.equal(

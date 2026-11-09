@@ -1,6 +1,8 @@
 import { createInMemoryGraphRepository } from "./adapters/memory/in-memory-graph-repository.ts";
 import { connectToMemgraph } from "./adapters/memgraph/memgraph-connection.ts";
+import { createMemgraphCypherReader } from "./adapters/memgraph/memgraph-cypher-reader.ts";
 import { createMemgraphGraphRepository } from "./adapters/memgraph/memgraph-graph-repository.ts";
+import type { CypherReader } from "./core/ports/cypher-reader/index.ts";
 import type { GraphRepository } from "./core/ports/graph-repository/index.ts";
 
 // What decides where the graph is kept. The three come from the environment (`MEMGRAPH_URL`,
@@ -16,6 +18,8 @@ export interface GraphRepositoryConfig {
 // the business of whoever created it, which is the composition root.
 export interface OpenGraphRepository {
   repository: GraphRepository;
+  // Only a Cypher store has one: Memgraph yes, memory no.
+  cypherReader?: CypherReader;
   close(): Promise<void>;
 }
 
@@ -48,6 +52,7 @@ export async function createGraphRepository(
 
   return {
     repository: await createMemgraphGraphRepository(connection),
+    cypherReader: createMemgraphCypherReader(connection),
     close: () => connection.close(),
   };
 }

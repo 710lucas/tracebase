@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createApp } from "../../../src/adapters/http/index.ts";
 import { createInMemoryGraphRepository } from "../../../src/adapters/memory/in-memory-graph-repository.ts";
+import type { CypherReader } from "../../../src/core/ports/cypher-reader/index.ts";
 import type { GraphRepository } from "../../../src/core/ports/graph-repository/index.ts";
 
 // The app the MCP tests call: the real application over the in-memory repository, with a small graph already
@@ -21,14 +22,16 @@ export interface TestApp {
 
 export async function startTestApp(
   wrap: (memory: GraphRepository) => GraphRepository = (memory) => memory,
+  cypherReader?: CypherReader,
 ): Promise<TestApp> {
   const graphRepository = wrap(createInMemoryGraphRepository());
   let runningServer: Server | undefined;
   await new Promise<void>((resolve) => {
-    runningServer = createApp({ graphRepository, runtimeInfo: { storage: "memory" } }).listen(
-      0,
-      () => resolve(),
-    );
+    runningServer = createApp({
+      graphRepository,
+      ...(cypherReader !== undefined && { cypherReader }),
+      runtimeInfo: { storage: "memory" },
+    }).listen(0, () => resolve());
   });
   const baseUrl = `http://localhost:${((runningServer as Server).address() as AddressInfo).port}`;
 

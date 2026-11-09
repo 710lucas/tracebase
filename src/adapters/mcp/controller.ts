@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 // Status code names come from Node (`node:http2` is only where Node publishes them; this API still
 // speaks HTTP/1.1 through Express).
 import { constants } from "node:http2";
+import type { CypherReader } from "../../core/ports/cypher-reader/index.ts";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
 import { createMcpServer } from "./create-mcp-server.ts";
 
@@ -19,10 +20,10 @@ const JSON_RPC_SERVER_ERROR = -32000;
 // internal error (500), as the SDK documents.
 //
 // `methodNotAllowed`: a stateless server has no stream to open (GET) and no session to close (DELETE).
-export function createMcpController(repository: GraphRepository) {
+export function createMcpController(repository: GraphRepository, cypherReader?: CypherReader) {
   return {
     handle: async (request: Request, response: Response): Promise<void> => {
-      const server = createMcpServer(repository);
+      const server = createMcpServer(repository, cypherReader);
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       response.on("close", () => {
         void transport.close();

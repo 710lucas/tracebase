@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { InvalidEntityError } from "../../core/domain/entity/index.ts";
+import { InvalidCypherError } from "../../core/ports/cypher-reader/index.ts";
 import {
   InvalidEntityQueryError,
   InvalidNeighbourhoodOptionsError,
@@ -50,6 +51,7 @@ const ERRORS_FOR_THE_CALLER = [
   InvalidShortestPathOptionsError,
   InvalidSearchError,
   InvalidEntityQueryError,
+  InvalidCypherError,
 ] as const;
 
 // Runs what a tool does and turns the errors of the caller into a tool error: what the AI sent that makes no
