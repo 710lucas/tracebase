@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createInMemoryGraphRepository } from "../../../../src/adapters/memory/in-memory-graph-repository.ts";
 import { createGraphService } from "../../../../src/adapters/http/graph/service.ts";
 import { createAttribute } from "../../../../src/core/domain/attribute/index.ts";
+import { InvalidSearchError } from "../../../../src/core/ports/graph-repository/index.ts";
 import { createEntity, InvalidEntityError } from "../../../../src/core/domain/entity/index.ts";
 import { createRelation } from "../../../../src/core/domain/relation/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
@@ -109,4 +110,18 @@ test("gives the shortest path between two entities, normalizing the text and pas
     service.getShortestPath({ type: " ", value: "x" }, { type: "T", value: "y" }, {}),
     InvalidEntityError,
   );
+});
+
+test("searches the entities that contain a text and passes the options on", async () => {
+  const service = await serviceWithAttribute();
+
+  const page = await service.searchEntities("NGINX", { limit: 5 });
+
+  assert.deepEqual(
+    page.results.map(({ entity }) => entity.value),
+    ["93.184.216.34"],
+  );
+  assert.equal(page.limit, 5);
+  assert.deepEqual((await service.searchEntities("nothing-has-this", {})).results, []);
+  await assert.rejects(service.searchEntities("  ", {}), InvalidSearchError);
 });

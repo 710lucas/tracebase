@@ -5,11 +5,13 @@ import type {
   EntityFindings,
   EntityNeighbourhood,
   EntityListQuery,
+  EntitySearchPage,
   EntityPage,
   EntityTypeCount,
   GraphRepository,
   NeighbourhoodOptions,
   QueryOptions,
+  SearchOptions,
   ShortestPath,
   ShortestPathOptions,
 } from "../../../core/ports/graph-repository/index.ts";
@@ -27,6 +29,7 @@ export interface GraphService {
     to: { type: string; value: string },
     options: QueryOptions & ShortestPathOptions,
   ): Promise<ShortestPath | null>;
+  searchEntities(text: string, options: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
   listEntityTypes(): Promise<EntityTypeCount[]>;
   listEntities(query: EntityListQuery): Promise<EntityPage>;
 }
@@ -53,6 +56,11 @@ export interface GraphService {
 // a `maxHops` that makes no sense ends in `InvalidShortestPathOptionsError`, a read that runs out of time
 // in `QueryTimeoutError`.
 //
+// `searchEntities`: asks for one page of the entities that contain a text, in their value or (scope `full`)
+// in the values of their attributes, with the options given (each has a default when missing). A search that
+// finds nothing is an empty page; a text without a character or an option that makes no sense ends in
+// `InvalidSearchError`, a read that runs out of time in `QueryTimeoutError`.
+//
 // `listEntityTypes` and `listEntities`: the entity types with their counts, and a page of the entities
 // of one type, for browsing what is there.
 export function createGraphService(repository: GraphRepository): GraphService {
@@ -71,6 +79,8 @@ export function createGraphService(repository: GraphRepository): GraphService {
         createEntity(to.type, to.value),
         options,
       ),
+
+    searchEntities: async (text, options) => repository.searchEntities(text, options),
 
     listEntityTypes: () => repository.listEntityTypes(),
 
