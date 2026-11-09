@@ -14,6 +14,23 @@ export function toolAnswer(answer: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(answer) }] };
 }
 
+// The answer of a tool that reads by pages of `limit` results (the search and the structured query). When more
+// results exist after the page it adds a hint that tells the AI how to go on, in the words of the parameters of
+// the tool, which is why it is written here and not in the core.
+export function pageAnswer(page: {
+  readonly truncated: boolean;
+  readonly nextOffset?: number;
+}): CallToolResult {
+  return toolAnswer(
+    page.truncated
+      ? {
+          ...page,
+          hint: `More results exist after this page: call again with offset=${page.nextOffset} for the next page, or with a bigger limit and timeoutMs to get them in one answer.`,
+        }
+      : page,
+  );
+}
+
 // An error the AI can read and act on: `isError` tells the client the call did not give what was asked, and the
 // text says what to change (a value that makes no sense, a limit to raise, an entity that is not there).
 export function toolError(message: string): CallToolResult {

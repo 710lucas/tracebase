@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import { createEntity } from "../../../core/domain/entity/index.ts";
 import type { GraphRepository } from "../../../core/ports/graph-repository/index.ts";
 import { entityNotFound, runTool, toolAnswer } from "../tool-result.ts";
@@ -17,7 +18,7 @@ export function registerFindEntityTool(server: McpServer, repository: GraphRepos
         "can be very large for an entity with many relations, so look at get_entity_degree first, and prefer " +
         "get_entity_neighbourhood to see who is near it. It needs the exact type and value of the entity; if you " +
         "do not know them, find them with search_entities first.",
-      inputSchema: entityFields,
+      inputSchema: z.strictObject(entityFields),
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     ({ type, value }) =>

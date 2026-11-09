@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
 import { registerFindEntityTool } from "./tools/find-entity.ts";
+import { registerFindShortestPathTool } from "./tools/find-shortest-path.ts";
+import { registerQueryEntitiesTool } from "./tools/query-entities.ts";
+import { registerSearchEntitiesTool } from "./tools/search-entities.ts";
 import { registerGetEntityDegreeTool } from "./tools/get-entity-degree.ts";
 import { registerGetEntityNeighbourhoodTool } from "./tools/get-entity-neighbourhood.ts";
 import { registerListEntityTypesTool } from "./tools/list-entity-types.ts";
@@ -17,6 +20,9 @@ export function createMcpServer(repository: GraphRepository): McpServer {
   registerFindEntityTool(server, repository);
   registerGetEntityDegreeTool(server, repository);
   registerGetEntityNeighbourhoodTool(server, repository);
+  registerFindShortestPathTool(server, repository);
+  registerSearchEntitiesTool(server, repository);
+  registerQueryEntitiesTool(server, repository);
 
   return server;
 }

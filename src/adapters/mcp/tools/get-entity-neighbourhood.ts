@@ -37,7 +37,7 @@ export function registerGetEntityNeighbourhoodTool(
         "detail=full for the attributes of every entity and the provenance of every relation (much bigger). Look " +
         "at get_entity_degree first to know whether the entity is a large hub. It needs the exact type and value " +
         "of the entity; if you do not know them, find them with search_entities first.",
-      inputSchema: {
+      inputSchema: z.strictObject({
         ...entityFields,
         hops: z
           .number()
@@ -63,7 +63,7 @@ export function registerGetEntityNeighbourhoodTool(
           .optional()
           .describe("lean (default) or full, with the attributes and the provenance."),
         timeoutMs: timeoutMsField,
-      },
+      }),
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     ({ type, value, hops, maxEntities, offset, detail, timeoutMs }) =>
