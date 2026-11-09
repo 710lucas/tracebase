@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_ENTITY_QUERY_LIMIT,
+  DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH,
   InvalidEntityQueryError,
   resolveEntityQuery,
   type EntityQuery,
@@ -21,9 +22,10 @@ test("a query with nothing in it is the whole graph, with every default filled i
     mode: "list",
     limit: DEFAULT_ENTITY_QUERY_LIMIT,
     offset: 0,
+    snippetLength: DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH,
   });
   assert.deepEqual(resolveEntityQuery({}), resolveEntityQuery());
-  assert.equal(DEFAULT_ENTITY_QUERY_LIMIT, 50);
+  assert.deepEqual([DEFAULT_ENTITY_QUERY_LIMIT, DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH], [50, 200]);
 });
 
 test("takes every field of the request, with no upper limit", () => {
@@ -37,6 +39,7 @@ test("takes every field of the request, with no upper limit", () => {
       mode: "count",
       limit: 1_000_000,
       offset: 5_000,
+      snippetLength: 100_000,
     }),
     {
       types: ["INTERNET_NAME", "IP_ADDRESS"],
@@ -47,6 +50,7 @@ test("takes every field of the request, with no upper limit", () => {
       mode: "count",
       limit: 1_000_000,
       offset: 5_000,
+      snippetLength: 100_000,
     },
   );
 });
@@ -134,6 +138,12 @@ test("refuses a match or a mode that does not exist", () => {
   refusing({ attributes: [{ name: "x", match: "fuzzy" as never }] }, /match must be one of/);
   refusing({ mode: "table" as never }, /mode must be one of list, count/);
 });
+
+for (const invalid of [{ snippetLength: 0 }, { snippetLength: 2.5 }, { snippetLength: -1 }]) {
+  test(`refuses ${JSON.stringify(invalid)}`, () => {
+    refusing(invalid, /snippetLength must be a whole number from 1/);
+  });
+}
 
 for (const invalid of [{ limit: 0 }, { limit: 1.5 }, { limit: -1 }, { limit: Number.NaN }]) {
   test(`refuses ${JSON.stringify(invalid)}`, () => {

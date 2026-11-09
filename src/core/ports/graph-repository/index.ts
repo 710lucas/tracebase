@@ -53,6 +53,7 @@ export type { ResolvedSearch, SearchOptions, SearchScope } from "./search-option
 export {
   DEFAULT_ENTITY_QUERY_LIMIT,
   DEFAULT_ENTITY_QUERY_OFFSET,
+  DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH,
   DEFAULT_QUERY_MODE,
   QUERY_MODES,
   resolveEntityQuery,
@@ -68,6 +69,17 @@ export type {
   ValueCondition,
 } from "./entity-query-options.ts";
 export { InvalidEntityQueryError } from "./invalid-entity-query-error.ts";
+export { createEntityQueryCounts, createEntityQueryPage } from "./entity-query-result.ts";
+export type {
+  EntityQueryAnswer,
+  EntityQueryCounts,
+  EntityQueryPage,
+  EntityQueryPageParts,
+  FoundByQuery,
+  FoundQueryMatch,
+  QueryMatch,
+  QueryResult,
+} from "./entity-query-result.ts";
 export { DEFAULT_MATCH_MODE, MATCH_MODES } from "./match-mode.ts";
 export type { MatchMode } from "./match-mode.ts";
 export { createEntitySearchPage } from "./entity-search.ts";

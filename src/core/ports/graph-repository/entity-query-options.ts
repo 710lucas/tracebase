@@ -10,6 +10,8 @@ export type QueryMode = (typeof QUERY_MODES)[number];
 export const DEFAULT_QUERY_MODE: QueryMode = "list";
 export const DEFAULT_ENTITY_QUERY_LIMIT = 50;
 export const DEFAULT_ENTITY_QUERY_OFFSET = 0;
+// How many characters of an attribute value are shown around the text that was found.
+export const DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH = 200;
 
 // A condition on the value of the entity: it must match `text` the way `match` says.
 export interface ValueCondition {
@@ -39,7 +41,8 @@ export interface ProvenanceFilter {
 // numbers has an upper limit, on purpose: the defaults are only what applies when the request says nothing,
 // and the time limit (`QueryOptions`) is the safety net. `limit` and `offset` are for `list` and are ignored by
 // `count`. `includeHistory` makes the attribute conditions look also at the sets that were replaced by newer
-// ones, not only at the current values.
+// ones, not only at the current values. `snippetLength` is how many characters of a value are shown around
+// the text that an attribute condition found.
 export interface EntityQuery {
   readonly types?: readonly string[];
   readonly value?: ValueCondition;
@@ -49,6 +52,7 @@ export interface EntityQuery {
   readonly mode?: QueryMode;
   readonly limit?: number;
   readonly offset?: number;
+  readonly snippetLength?: number;
 }
 
 export interface ResolvedValueCondition {
@@ -72,14 +76,15 @@ export interface ResolvedEntityQuery {
   readonly mode: QueryMode;
   readonly limit: number;
   readonly offset: number;
+  readonly snippetLength: number;
 }
 
 // Cleans the texts like an entity (Unicode NFC, trimmed), fills in the defaults and checks the query, so every
 // repository (memory, Memgraph) accepts and refuses the same requests. Refused: an empty list of types or a
 // blank type, a value condition without text, an attribute condition without a name or with a blank qualifier
 // or text, a provenance filter with none of tool, module and run (or with a blank one), a `match` or `mode`
-// that does not exist, a `limit` that is not a whole number from 1 and an `offset` that is not a whole number
-// from 0.
+// that does not exist, a `limit` or `snippetLength` that is not a whole number from 1 and an `offset` that is
+// not a whole number from 0.
 export function resolveEntityQuery(query: EntityQuery = {}): ResolvedEntityQuery {
   const mode = query.mode ?? DEFAULT_QUERY_MODE;
   if (!QUERY_MODES.includes(mode)) {
@@ -89,6 +94,10 @@ export function resolveEntityQuery(query: EntityQuery = {}): ResolvedEntityQuery
   const limit = query.limit ?? DEFAULT_ENTITY_QUERY_LIMIT;
   if (!Number.isSafeInteger(limit) || limit < 1) {
     throw new InvalidEntityQueryError("limit must be a whole number from 1");
+  }
+  const snippetLength = query.snippetLength ?? DEFAULT_ENTITY_QUERY_SNIPPET_LENGTH;
+  if (!Number.isSafeInteger(snippetLength) || snippetLength < 1) {
+    throw new InvalidEntityQueryError("snippetLength must be a whole number from 1");
   }
   const offset = query.offset ?? DEFAULT_ENTITY_QUERY_OFFSET;
   if (!Number.isSafeInteger(offset) || offset < 0) {
@@ -110,6 +119,7 @@ export function resolveEntityQuery(query: EntityQuery = {}): ResolvedEntityQuery
     mode,
     limit,
     offset,
+    snippetLength,
   };
 }
 
