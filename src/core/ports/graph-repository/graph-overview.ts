@@ -1,4 +1,5 @@
 import type { Entity } from "../../domain/entity/index.ts";
+import type { MatchMode } from "./match-mode.ts";
 
 // The questions about the graph as a whole, as opposed to `findEntity`, which is about one entity. They
 // feed the screens that show what has been imported and let someone browse it.
@@ -29,12 +30,13 @@ export interface GraphTotals {
   readonly attributes: number;
 }
 
-// Which entities of one type to list: the ones whose value contains `search` (case does not matter; no
-// `search` means all), `limit` of them from position `offset`, ordered by value so that pages are
-// stable.
+// Which entities of one type to list: the ones whose value matches `search` (no `search` means all) the way
+// `match` says (`MatchMode`; by default `insensitive`: contains the text, ignoring case and accents),
+// `limit` of them from position `offset`, ordered by value so that pages are stable.
 export interface EntityListQuery {
   readonly type: string;
   readonly search?: string;
+  readonly match?: MatchMode;
   readonly limit: number;
   readonly offset: number;
 }

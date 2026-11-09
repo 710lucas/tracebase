@@ -3,6 +3,7 @@ import type { Entity } from "../../core/domain/entity/index.ts";
 import type { Relation } from "../../core/domain/relation/index.ts";
 import {
   createRunSummaries,
+  indexOfText,
   type EntityListQuery,
   type EntityPage,
   type EntityTypeCount,
@@ -61,10 +62,10 @@ export function countEntityTypes(entities: readonly Entity[]): EntityTypeCount[]
 }
 
 export function pageOfEntities(entities: readonly Entity[], query: EntityListQuery): EntityPage {
-  const search = query.search?.toLowerCase();
+  const { search } = query;
   const matching = entities
     .filter((entity) => entity.type === query.type)
-    .filter((entity) => search === undefined || entity.value.toLowerCase().includes(search))
+    .filter((entity) => search === undefined || indexOfText(entity.value, search, query.match) >= 0)
     .sort((first, second) => first.value.localeCompare(second.value));
 
   return {

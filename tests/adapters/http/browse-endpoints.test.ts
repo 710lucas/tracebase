@@ -105,6 +105,27 @@ test("the entity list filters by the search text", async () => {
   });
 });
 
+test("the entity list compares the search text the way match says", async () => {
+  const list = async (query: string) =>
+    (
+      (await (await fetch(`${baseUrl}/graph/types/DOMAIN_NAME/entities?${query}`)).json()) as {
+        entities: { value: string }[];
+      }
+    ).entities.map(({ value }) => value);
+
+  assert.deepEqual(await list("search=another.org&match=exact"), ["another.org"]);
+  assert.deepEqual(await list("search=another&match=exact"), []);
+  assert.deepEqual(await list("search=ANOTHER&match=contains"), []);
+  assert.deepEqual(await list("search=ANOTHER&match=insensitive"), ["another.org"]);
+});
+
+test("the entity list rejects a match mode that does not exist with 400", async () => {
+  const response = await fetch(`${baseUrl}/graph/types/DOMAIN_NAME/entities?search=a&match=fuzzy`);
+
+  assert.equal(response.status, 400);
+  assert.match(((await response.json()) as { error: string }).error, /match is one of/);
+});
+
 test("an entity list with a type nobody has is empty, not an error", async () => {
   const response = await fetch(`${baseUrl}/graph/types/NOPE/entities`);
 

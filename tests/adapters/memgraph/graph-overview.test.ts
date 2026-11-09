@@ -150,6 +150,37 @@ test(
   },
 );
 
+test(
+  "filters the entity list by the match mode: exact, contains, or ignoring case and accents",
+  { skip: skipWithoutMemgraph },
+  async () => {
+    const graph = await repository();
+    await graph.save({
+      relations: [
+        relation("café", "CAFÉ", "run-m", 1000),
+        relation("café bom", "cafe", "run-m", 1000),
+      ],
+      attributes: [],
+    });
+    const list = async (search: string, match?: "exact" | "contains" | "insensitive") =>
+      (
+        await graph.listEntities({
+          type: TYPE,
+          search: `${PREFIX}${search}`,
+          ...(match !== undefined && { match }),
+          limit: 10,
+          offset: 0,
+        })
+      ).entities.map(({ value }) => value.slice(PREFIX.length));
+
+    assert.deepEqual(await list("café", "exact"), ["café"]);
+    assert.deepEqual(await list("café", "contains"), ["café", "café bom"]);
+    // By default case and accents are ignored, in both directions.
+    assert.deepEqual(await list("cafe"), ["CAFÉ", "café", "cafe", "café bom"].sort());
+    assert.deepEqual(await list("CAFÉ"), await list("cafe"));
+  },
+);
+
 // The current records sit in a map of maps (name, then qualifier), so the counting queries unwind two
 // levels: sets with different qualifiers must each count.
 test(
