@@ -1,10 +1,11 @@
-import type { EntityNeighbourhood } from "../../../core/ports/graph-repository/index.ts";
+import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
 
 // A neighbourhood reduced to what an AI (or a person) needs to see its shape: who is near, at which
 // distance, and who is linked to whom, without the provenance of each relation and without the
 // attributes of every entity. The origin keeps its attributes (name and values); anything else about one
-// entity is one `GET /graph/entities` away. It is the answer of the neighbourhood route unless the
-// caller asks for the full one.
+// entity is one question about that entity away. It is the answer of the neighbourhood route and of the
+// neighbourhood tool of the AI unless the caller asks for the full one, which is why it lives in the core:
+// both adapters give the same shape.
 //
 // The relations name their two ends in full instead of pointing at positions in `entities`: each one can
 // be read on its own, which is what keeps them valid when a neighbourhood comes in several answers (pages).

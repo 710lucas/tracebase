@@ -9,6 +9,7 @@ import {
   InvalidSearchError,
   InvalidShortestPathOptionsError,
   QueryTimeoutError,
+  toLeanNeighbourhood,
   type EntityListQuery,
   type QueryOptions,
 } from "../../../core/ports/graph-repository/index.ts";
@@ -17,7 +18,6 @@ import {
   NEIGHBOURHOOD_REQUEST_KEY,
   type NeighbourhoodRequest,
 } from "./middlewares/validate-neighbourhood-request.ts";
-import { toLeanNeighbourhood } from "./lean-neighbourhood.ts";
 import {
   SHORTEST_PATH_REQUEST_KEY,
   type ShortestPathRequest,

@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toLeanNeighbourhood } from "../../../../src/adapters/http/graph/lean-neighbourhood.ts";
 import { createAttribute } from "../../../../src/core/domain/attribute/index.ts";
 import { createEntity } from "../../../../src/core/domain/entity/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
 import { createRelation } from "../../../../src/core/domain/relation/index.ts";
-import { createEntityNeighbourhood } from "../../../../src/core/ports/graph-repository/index.ts";
+import {
+  createEntityNeighbourhood,
+  toLeanNeighbourhood,
+} from "../../../../src/core/ports/graph-repository/index.ts";
 
 const origin = createEntity("IP_ADDRESS", "104.21.2.94");
 const domain = createEntity("INTERNET_NAME", "example.com");

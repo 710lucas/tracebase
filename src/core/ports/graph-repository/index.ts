@@ -84,6 +84,8 @@ export type {
   QueryMatch,
   QueryResult,
 } from "./entity-query-result.ts";
+export { toLeanNeighbourhood } from "./lean-neighbourhood.ts";
+export type { LeanNeighbourhood } from "./lean-neighbourhood.ts";
 export { DEFAULT_MATCH_MODE, MATCH_MODES } from "./match-mode.ts";
 export type { MatchMode } from "./match-mode.ts";
 export { createEntitySearchPage } from "./entity-search.ts";
