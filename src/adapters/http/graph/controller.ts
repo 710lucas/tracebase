@@ -166,9 +166,14 @@ export function createGraphController(service: GraphService) {
         const path = await service.getShortestPath(from, to, options);
 
         if (path === null) {
+          // Only on this error path: ask which end is missing, so the caller knows what to fix.
+          const missing: string[] = [];
+          if ((await service.findEntity(from.type, from.value)) === null) missing.push("start");
+          if ((await service.findEntity(to.type, to.value)) === null) missing.push("end");
+
           response
             .status(constants.HTTP_STATUS_NOT_FOUND)
-            .json({ error: "the entity at the start or at the end of the path was not found" });
+            .json({ error: `entity not found at the ${missing.join(" and the ")} of the path` });
           return;
         }
 

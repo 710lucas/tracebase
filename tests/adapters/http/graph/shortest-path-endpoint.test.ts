@@ -136,16 +136,19 @@ test("passes the maxHops and the time limit of the request on, and none when it 
   assert.deepEqual(calls, [{}, { maxHops: 9, timeoutMs: 1500 }]);
 });
 
-test("answers 404 when either entity is not in the graph", async () => {
-  for (const query of [
-    between("a.test", "nobody.test"),
-    between("nobody.test", "a.test"),
-    between("nobody.test", "nobody-2.test"),
-  ]) {
+test("answers 404 and says which end of the path is not in the graph", async () => {
+  for (const [query, message] of [
+    [between("a.test", "nobody.test"), "entity not found at the end of the path"],
+    [between("nobody.test", "a.test"), "entity not found at the start of the path"],
+    [
+      between("nobody.test", "nobody-2.test"),
+      "entity not found at the start and the end of the path",
+    ],
+  ] as const) {
     const response = await getPath(query);
 
     assert.equal(response.status, 404);
-    assert.match(((await response.json()) as { error: string }).error, /not found/);
+    assert.deepEqual(await response.json(), { error: message });
   }
 });
 
