@@ -76,6 +76,7 @@ function search(query: string) {
 interface Page {
   text: string;
   scope: string;
+  match: string;
   limit: number;
   offset: number;
   maxMatches: number;
@@ -113,8 +114,16 @@ test("repeats what was asked with the defaults filled in", async () => {
   const page = (await (await search("text=example")).json()) as Page;
 
   assert.deepEqual(
-    [page.text, page.scope, page.limit, page.offset, page.maxMatches, page.snippetLength],
-    ["example", "full", 50, 0, 100, 200],
+    [
+      page.text,
+      page.scope,
+      page.match,
+      page.limit,
+      page.offset,
+      page.maxMatches,
+      page.snippetLength,
+    ],
+    ["example", "full", "insensitive", 50, 0, 100, 200],
   );
   assert.equal(page.truncated, false);
   assert.equal("nextOffset" in page, false);
@@ -124,6 +133,22 @@ test("with the scope entity-value it does not look at the attributes", async () 
   const page = (await (await search("text=nginx&scope=entity-value")).json()) as Page;
 
   assert.deepEqual(page.results, []);
+});
+
+test("the match mode of the request decides how the text is compared", async () => {
+  const exact = (await (await search("text=a.example.com&match=exact")).json()) as Page;
+  const partOfIt = (await (await search("text=example.com&match=exact")).json()) as Page;
+  const contains = (await (await search("text=EXAMPLE.com&match=contains")).json()) as Page;
+  const loose = (await (await search("text=EXAMPLE.com")).json()) as Page;
+
+  assert.equal(exact.match, "exact");
+  assert.deepEqual(
+    exact.results.map(({ entity }) => entity.value),
+    ["a.example.com"],
+  );
+  assert.deepEqual(partOfIt.results, []);
+  assert.deepEqual(contains.results, []);
+  assert.equal(loose.results.length, 3);
 });
 
 test("the pages, read one after the other, give every result once", async () => {
@@ -167,13 +192,14 @@ test("passes the options of the request on, and none when it gives none", async 
   calls.length = 0;
   await search("text=x");
   await search(
-    "text=x&scope=entity-value&limit=7&offset=0&maxMatches=3&snippetLength=9&timeoutMs=1500",
+    "text=x&scope=entity-value&match=contains&limit=7&offset=0&maxMatches=3&snippetLength=9&timeoutMs=1500",
   );
 
   assert.deepEqual(calls, [
     {},
     {
       scope: "entity-value",
+      match: "contains",
       limit: 7,
       offset: 0,
       maxMatches: 3,
@@ -208,6 +234,17 @@ test("answers 400 for a scope that does not exist", async () => {
   assert.deepEqual(await response.json(), {
     error: "scope is one of entity-value, full, given once",
   });
+});
+
+test("answers 400 for a match mode that does not exist, or given twice", async () => {
+  for (const query of ["text=x&match=fuzzy", "text=x&match=exact&match=contains"]) {
+    const response = await search(query);
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "match is one of exact, contains, insensitive, given once",
+    });
+  }
 });
 
 for (const query of [

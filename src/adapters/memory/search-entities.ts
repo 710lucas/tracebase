@@ -33,11 +33,13 @@ export function searchInMemory(
   for (const entity of collectEntities(relations, attributes)) {
     const matches: FoundMatch[] = [];
 
-    if (indexOfText(entity.value, search.text) >= 0) {
+    if (indexOfText(entity.value, search.text, search.match) >= 0) {
       matches.push({ where: "entity-value", value: entity.value });
     }
     for (const attribute of attributesByEntity.get(entityKey(entity)) ?? []) {
-      const value = attribute.values.find((candidate) => indexOfText(candidate, search.text) >= 0);
+      const value = attribute.values.find(
+        (candidate) => indexOfText(candidate, search.text, search.match) >= 0,
+      );
       if (value !== undefined) {
         matches.push({
           where: "attribute",

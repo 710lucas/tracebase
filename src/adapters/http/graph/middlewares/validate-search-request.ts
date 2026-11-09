@@ -3,7 +3,9 @@ import type { RequestHandler } from "express";
 // speaks HTTP/1.1 through Express).
 import { constants } from "node:http2";
 import {
+  MATCH_MODES,
   SEARCH_SCOPES,
+  type MatchMode,
   type SearchOptions,
   type SearchScope,
 } from "../../../../core/ports/graph-repository/index.ts";
@@ -18,12 +20,13 @@ export interface SearchRequest {
 }
 
 // Middleware of the search route: `text` is required; `scope` is optional and is one of `SEARCH_SCOPES`;
+// `match` is optional and is one of `MATCH_MODES` (how the text is compared with the values);
 // `limit`, `offset`, `maxMatches` and `snippetLength` are optional and each must be a plain run of digits;
 // every parameter is given once. If not, it answers 400 itself and the controller never runs. Whether the
 // text has a character and whether a number is usable (`limit`, `maxMatches` and `snippetLength` from 1) is
 // decided later by the core.
 export const validateSearchRequest: RequestHandler = (request, response, next) => {
-  const { text, scope, limit, offset, maxMatches, snippetLength } = request.query;
+  const { text, scope, match, limit, offset, maxMatches, snippetLength } = request.query;
 
   // A parameter given twice (`text=a&text=b`) arrives as a list, which is not accepted.
   if (typeof text !== "string") {
@@ -36,6 +39,12 @@ export const validateSearchRequest: RequestHandler = (request, response, next) =
     response
       .status(constants.HTTP_STATUS_BAD_REQUEST)
       .json({ error: `scope is one of ${SEARCH_SCOPES.join(", ")}, given once` });
+    return;
+  }
+  if (match !== undefined && !MATCH_MODES.includes(match as MatchMode)) {
+    response
+      .status(constants.HTTP_STATUS_BAD_REQUEST)
+      .json({ error: `match is one of ${MATCH_MODES.join(", ")}, given once` });
     return;
   }
 
@@ -56,6 +65,7 @@ export const validateSearchRequest: RequestHandler = (request, response, next) =
     text,
     options: {
       ...(scope !== undefined && { scope: scope as SearchScope }),
+      ...(match !== undefined && { match: match as MatchMode }),
       ...(numbers.limit !== undefined && { limit: numbers.limit as number }),
       ...(numbers.offset !== undefined && { offset: numbers.offset as number }),
       ...(numbers.maxMatches !== undefined && { maxMatches: numbers.maxMatches as number }),

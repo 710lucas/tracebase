@@ -12,6 +12,7 @@ test("fills in every default when only the text is given", () => {
   assert.deepEqual(resolveSearch("example"), {
     text: "example",
     scope: "full",
+    match: "insensitive",
     limit: DEFAULT_SEARCH_LIMIT,
     offset: 0,
     maxMatches: DEFAULT_SEARCH_MAX_MATCHES,
@@ -27,6 +28,7 @@ test("takes every value of the request, with no upper limit", () => {
   assert.deepEqual(
     resolveSearch("x", {
       scope: "entity-value",
+      match: "exact",
       limit: 1_000_000,
       offset: 5_000,
       maxMatches: 10_000,
@@ -35,6 +37,7 @@ test("takes every value of the request, with no upper limit", () => {
     {
       text: "x",
       scope: "entity-value",
+      match: "exact",
       limit: 1_000_000,
       offset: 5_000,
       maxMatches: 10_000,
@@ -66,6 +69,15 @@ test("refuses a scope that does not exist", () => {
     () => resolveSearch("x", { scope: "everything" as never }),
     (error: unknown) =>
       error instanceof InvalidSearchError && /scope must be one of/.test(error.message),
+  );
+});
+
+test("refuses a match mode that does not exist", () => {
+  assert.throws(
+    () => resolveSearch("x", { match: "fuzzy" as never }),
+    (error: unknown) =>
+      error instanceof InvalidSearchError &&
+      /match must be one of exact, contains, insensitive/.test(error.message),
   );
 });
 

@@ -85,6 +85,68 @@ export function testSearchContract(options: GraphRepositoryContractOptions): voi
     assert.deepEqual(who(page), [`${HOST}:café-${TOKEN}`]);
   });
 
+  test(`${name}: by default it ignores accents too, in both directions`, { skip }, async () => {
+    const repository = await repositoryWith([
+      entity(HOST, `1-café-${TOKEN}`),
+      entity(HOST, `2-CAFE-${TOKEN}`),
+      entity(HOST, `3-chá-${TOKEN}`),
+    ]);
+
+    const withAccent = await repository.searchEntities(`café-${TOKEN}`);
+    const withoutAccent = await repository.searchEntities(`CAFE-${TOKEN}`);
+
+    const both = [`${HOST}:1-café-${TOKEN}`, `${HOST}:2-CAFE-${TOKEN}`];
+    assert.deepEqual(who(withAccent), both);
+    assert.deepEqual(who(withoutAccent), both);
+  });
+
+  test(`${name}: match "contains" respects case and accents`, { skip }, async () => {
+    const repository = await repositoryWith([
+      entity(HOST, `1-café-${TOKEN}`),
+      entity(HOST, `2-CAFÉ-${TOKEN}`),
+      entity(HOST, `3-cafe-${TOKEN}`),
+      entity(HOST, `4-um café-${TOKEN} bom`),
+    ]);
+
+    const page = await repository.searchEntities(`café-${TOKEN}`, { match: "contains" });
+
+    assert.deepEqual(who(page), [`${HOST}:1-café-${TOKEN}`, `${HOST}:4-um café-${TOKEN} bom`]);
+  });
+
+  test(`${name}: match "exact" finds only the value that is the text`, { skip }, async () => {
+    const repository = await repositoryWith([
+      entity(HOST, `${TOKEN}`),
+      entity(HOST, `${TOKEN}-more`),
+      entity(HOST, `${TOKEN.toUpperCase()}`),
+    ]);
+
+    const page = await repository.searchEntities(`${valuePrefix}${TOKEN}`, { match: "exact" });
+
+    assert.deepEqual(who(page), [`${HOST}:${TOKEN}`]);
+    assert.equal(page.match, "exact");
+  });
+
+  test(
+    `${name}: the match mode also applies to the values of the attributes`,
+    { skip },
+    async () => {
+      const owner = entity(HOST, `owner-${TOKEN}`);
+      const repository = await repositoryWith(
+        [owner],
+        [attribute(owner, "note", [`Café ${TOKEN}`])],
+      );
+
+      const loose = await repository.searchEntities(`cafe ${TOKEN}`, { scope: "full" });
+      const strict = await repository.searchEntities(`cafe ${TOKEN}`, { match: "contains" });
+
+      assert.equal(
+        loose.results[0]?.matches.some(({ where }) => where === "attribute"),
+        true,
+      );
+      assert.deepEqual(who(strict), []);
+    },
+  );
+
   test(
     `${name}: a text written with a combining accent finds the same as the accented letter`,
     { skip },

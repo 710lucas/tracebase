@@ -25,7 +25,7 @@ function fakeConnection(answers: { values?: Answer; attributeOnly?: Answer; matc
     run: async (query: string, parameters: Record<string, unknown> = {}, options?: RunOptions) => {
       const kind = query.includes("UNWIND $keys")
         ? "matches"
-        : query.includes("none(")
+        : query.includes("AND NOT (")
           ? "attributeOnly"
           : "values";
       calls.push({ kind, parameters, ...(options !== undefined && { options }) });
@@ -53,13 +53,34 @@ test("with the scope entity-value only the entities whose value matches are aske
   );
 });
 
-test("asks for the entities up to the end of the page and one more, with the variants of the text", async () => {
+test("asks for the entities up to the end of the page and one more, with the pattern of the text", async () => {
   const { connection, calls } = fakeConnection({});
 
   await searchEntities(connection, "Café", { limit: 10, offset: 0 });
 
   assert.equal(calls[0]?.parameters["limit"], 11);
-  assert.deepEqual([...(calls[0]?.parameters["variants"] as string[])].sort(), ["cafÉ", "café"]);
+  assert.match(calls[0]?.parameters["pattern"] as string, /^\[\\s\\S\]\*.*\[\\s\\S\]\*$/);
+  assert.equal("text" in (calls[0]?.parameters ?? {}), false);
+});
+
+test("the match mode decides how the text travels: as a text for exact and contains, as a pattern otherwise", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const queries: string[] = [];
+  const connection = {
+    run: async (query: string, parameters: Record<string, unknown> = {}) => {
+      queries.push(query);
+      sent.push(parameters);
+      return [];
+    },
+  } as unknown as MemgraphConnection;
+
+  await searchEntities(connection, "x", { match: "exact", scope: "entity-value" });
+  await searchEntities(connection, "x", { match: "contains", scope: "entity-value" });
+
+  assert.match(queries[0] ?? "", /n\.value = \$text/);
+  assert.match(queries[1] ?? "", /n\.value CONTAINS \$text/);
+  assert.deepEqual([sent[0]?.["text"], sent[1]?.["text"]], ["x", "x"]);
+  assert.equal("pattern" in (sent[0] ?? {}), false);
 });
 
 test("does not ask for the attribute-only entities when the first group fills the page", async () => {

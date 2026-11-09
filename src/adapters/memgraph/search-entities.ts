@@ -9,45 +9,56 @@ import {
   type SearchOptions,
 } from "../../core/ports/graph-repository/index.ts";
 import { fromQualifierKey } from "./attribute-record.ts";
-import { caseVariants } from "./case-variants.ts";
+import { createMatchPredicate } from "./match-predicate.ts";
+import type { MatchPredicate } from "./match-predicate.ts";
 import type { MemgraphConnection } from "./memgraph-connection.ts";
 import { withinTimeLimit } from "./within-time-limit.ts";
 
-// The first group of the results: the entities whose VALUE contains the text, in the order of the answer
-// (value, then type) and as far as `LIMIT`. `$variants` are the ways the text may be written so that Memgraph
-// ignores the case (`case-variants.ts`); the value is lowered by the database.
-const ENTITIES_WITH_MATCHING_VALUE =
-  "MATCH (n:Entity) " +
-  "WHERE any(variant IN $variants WHERE toLower(n.value) CONTAINS variant) " +
-  "RETURN n.type AS type, n.value AS value " +
-  "ORDER BY value, type LIMIT toInteger($limit)";
+// The queries of a search, written for the way the text is compared with a value (`MatchPredicate`): the
+// condition for each value is put in place of the marks below. `$text` or `$pattern`, whichever the match
+// mode uses, travels as a parameter like every other value.
 
-// The second group: the entities whose value does NOT contain the text but that have a current attribute with a
-// value that does. The attributes are in the map property `attributes` of the node (name, then qualifier).
-const ENTITIES_WITH_MATCHING_ATTRIBUTE =
-  "MATCH (n:Entity) " +
-  "WHERE n.attributes IS NOT NULL " +
-  "AND none(variant IN $variants WHERE toLower(n.value) CONTAINS variant) " +
-  "AND any(name IN keys(n.attributes) WHERE " +
-  "any(qualifierKey IN keys(n.attributes[name]) WHERE " +
-  "any(candidate IN n.attributes[name][qualifierKey].values WHERE " +
-  "any(variant IN $variants WHERE toLower(candidate) CONTAINS variant)))) " +
-  "RETURN n.type AS type, n.value AS value " +
-  "ORDER BY value, type LIMIT toInteger($limit)";
+// The first group of the results: the entities whose VALUE matches the text, in the order of the answer
+// (value, then type) and as far as `LIMIT`.
+function entitiesWithMatchingValue(predicate: MatchPredicate): string {
+  return (
+    "MATCH (n:Entity) " +
+    `WHERE ${predicate.condition("n.value")} ` +
+    "RETURN n.type AS type, n.value AS value " +
+    "ORDER BY value, type LIMIT toInteger($limit)"
+  );
+}
+
+// The second group: the entities whose value does NOT match but that have a current attribute with a value that
+// does. The attributes are in the map property `attributes` of the node (name, then qualifier).
+function entitiesWithMatchingAttribute(predicate: MatchPredicate): string {
+  return (
+    "MATCH (n:Entity) " +
+    "WHERE n.attributes IS NOT NULL " +
+    `AND NOT (${predicate.condition("n.value")}) ` +
+    "AND any(name IN keys(n.attributes) WHERE " +
+    "any(qualifierKey IN keys(n.attributes[name]) WHERE " +
+    `any(candidate IN n.attributes[name][qualifierKey].values WHERE ${predicate.condition("candidate")}))) ` +
+    "RETURN n.type AS type, n.value AS value " +
+    "ORDER BY value, type LIMIT toInteger($limit)"
+  );
+}
 
 // Where the text matched in the attributes of the entities of the page: one row for each attribute (name and
 // qualifier) that has a value with the text, with the first such value (the values are sorted).
-const ATTRIBUTE_MATCHES_OF_ENTITIES =
-  "UNWIND $keys AS key " +
-  "MATCH (n:Entity {type: key.type, value: key.value}) " +
-  "WHERE n.attributes IS NOT NULL " +
-  "UNWIND keys(n.attributes) AS name " +
-  "UNWIND keys(n.attributes[name]) AS qualifierKey " +
-  "WITH n, name, qualifierKey, " +
-  "[candidate IN n.attributes[name][qualifierKey].values " +
-  "WHERE any(variant IN $variants WHERE toLower(candidate) CONTAINS variant)] AS hits " +
-  "WHERE size(hits) > 0 " +
-  "RETURN n.type AS type, n.value AS value, name, qualifierKey, hits[0] AS matched";
+function attributeMatchesOfEntities(predicate: MatchPredicate): string {
+  return (
+    "UNWIND $keys AS key " +
+    "MATCH (n:Entity {type: key.type, value: key.value}) " +
+    "WHERE n.attributes IS NOT NULL " +
+    "UNWIND keys(n.attributes) AS name " +
+    "UNWIND keys(n.attributes[name]) AS qualifierKey " +
+    "WITH n, name, qualifierKey, " +
+    `[candidate IN n.attributes[name][qualifierKey].values WHERE ${predicate.condition("candidate")}] AS hits ` +
+    "WHERE size(hits) > 0 " +
+    "RETURN n.type AS type, n.value AS value, name, qualifierKey, hits[0] AS matched"
+  );
+}
 
 interface EntityRow {
   type: string;
@@ -73,17 +84,17 @@ export async function searchEntities(
 ): Promise<EntitySearchPage> {
   const search = resolveSearch(text, options);
   const run = withinTimeLimit(connection, options);
-  const variants = caseVariants(search.text);
+  const predicate = createMatchPredicate(search.text, search.match);
 
   const needed = search.offset + search.limit + 1;
-  const valueRows = (await run(ENTITIES_WITH_MATCHING_VALUE, {
-    variants,
+  const valueRows = (await run(entitiesWithMatchingValue(predicate), {
+    ...predicate.parameters,
     limit: needed,
   })) as unknown as EntityRow[];
   const attributeOnlyRows =
     search.scope === "full" && valueRows.length < needed
-      ? ((await run(ENTITIES_WITH_MATCHING_ATTRIBUTE, {
-          variants,
+      ? ((await run(entitiesWithMatchingAttribute(predicate), {
+          ...predicate.parameters,
           limit: needed - valueRows.length,
         })) as unknown as EntityRow[])
       : [];
@@ -99,8 +110,8 @@ export async function searchEntities(
     .map(({ row }) => ({ type: row.type, value: row.value }));
   const attributeRows =
     search.scope === "full" && pageKeys.length > 0
-      ? ((await run(ATTRIBUTE_MATCHES_OF_ENTITIES, {
-          variants,
+      ? ((await run(attributeMatchesOfEntities(predicate), {
+          ...predicate.parameters,
           keys: pageKeys,
         })) as unknown as AttributeMatchRow[])
       : [];

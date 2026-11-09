@@ -2,6 +2,7 @@ import { compareEntitiesByValue, type Entity } from "../../domain/entity/index.t
 import { compareText } from "../../domain/text/index.ts";
 import { InvalidSearchError } from "./invalid-search-error.ts";
 import type { ResolvedSearch, SearchScope } from "./search-options.ts";
+import type { MatchMode } from "./match-mode.ts";
 import { createSnippet } from "./search-text.ts";
 
 // One place where the searched text was found for an entity: in its value (`entity-value`), or in the
@@ -31,6 +32,7 @@ export interface SearchResult {
 export interface EntitySearchPage {
   readonly text: string;
   readonly scope: SearchScope;
+  readonly match: MatchMode;
   readonly limit: number;
   readonly offset: number;
   readonly maxMatches: number;
@@ -90,6 +92,7 @@ export function createEntitySearchPage(parts: EntitySearchParts): EntitySearchPa
   return {
     text: search.text,
     scope: search.scope,
+    match: search.match,
     limit,
     offset,
     maxMatches,
@@ -103,7 +106,7 @@ export function createEntitySearchPage(parts: EntitySearchParts): EntitySearchPa
           where,
           ...(name !== undefined && { name }),
           ...(qualifier !== undefined && { qualifier }),
-          snippet: createSnippet(value, search.text, snippetLength),
+          snippet: createSnippet(value, search.text, snippetLength, search.match),
         })),
         ...(matches.length > listed.length && { moreMatches: matches.length - listed.length }),
       };

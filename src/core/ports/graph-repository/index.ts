@@ -50,6 +50,8 @@ export {
   resolveSearch,
 } from "./search-options.ts";
 export type { ResolvedSearch, SearchOptions, SearchScope } from "./search-options.ts";
+export { DEFAULT_MATCH_MODE, MATCH_MODES } from "./match-mode.ts";
+export type { MatchMode } from "./match-mode.ts";
 export { createEntitySearchPage } from "./entity-search.ts";
 export type {
   EntitySearchPage,

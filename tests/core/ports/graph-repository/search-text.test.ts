@@ -19,6 +19,36 @@ test("ignores the case of letters with accents", () => {
   assert.equal(indexOfText("CAFÉ", "café"), 0);
 });
 
+test("insensitive (the default) also ignores accents, in both directions", () => {
+  assert.equal(indexOfText("um CAFÉ bom", "cafe"), 3);
+  assert.equal(indexOfText("um cafe bom", "CAFÉ"), 3);
+  assert.equal(indexOfText("São Paulo", "sao"), 0);
+  assert.equal(indexOfText("cafe", "café", "insensitive"), 0);
+});
+
+test("insensitive tells the position in the original value when folding changes its length", () => {
+  // `İ` (one character) folds to `i` and `ﬁ`-like cases stay; the position must still be the original one.
+  assert.equal(indexOfText("İstanbul", "stan"), 1);
+});
+
+test("contains respects case and accents", () => {
+  assert.equal(indexOfText("um café bom", "café", "contains"), 3);
+  assert.equal(indexOfText("um CAFÉ bom", "café", "contains"), -1);
+  assert.equal(indexOfText("um cafe bom", "café", "contains"), -1);
+});
+
+test("exact finds the text only when the value is the text", () => {
+  assert.equal(indexOfText("café", "café", "exact"), 0);
+  assert.equal(indexOfText("um café", "café", "exact"), -1);
+  assert.equal(indexOfText("Café", "café", "exact"), -1);
+});
+
+test("a snippet looks for the text in the same mode", () => {
+  const value = `${"a".repeat(50)}CAFÉ${"b".repeat(50)}`;
+
+  assert.equal(createSnippet(value, "cafe", 20), `…${"a".repeat(8)}CAFÉ${"b".repeat(8)}…`);
+});
+
 test("a value that fits is shown whole", () => {
   assert.equal(createSnippet("example.com", "ample", 200), "example.com");
 });

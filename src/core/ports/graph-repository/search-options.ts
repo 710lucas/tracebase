@@ -1,5 +1,6 @@
 import { normalizeText } from "../../domain/text/index.ts";
 import { InvalidSearchError } from "./invalid-search-error.ts";
+import { DEFAULT_MATCH_MODE, MATCH_MODES, type MatchMode } from "./match-mode.ts";
 
 // Where a search looks: only in the value of the entities (cheap), or also in the values of their current
 // attributes (`full`, which reads much more of the graph).
@@ -20,6 +21,7 @@ export const DEFAULT_SEARCH_SNIPPET_LENGTH = 200;
 // skip from the start of the ordered list.
 export interface SearchOptions {
   readonly scope?: SearchScope;
+  readonly match?: MatchMode;
   readonly limit?: number;
   readonly offset?: number;
   readonly maxMatches?: number;
@@ -30,6 +32,7 @@ export interface ResolvedSearch {
   // The text to look for, cleaned like an entity value (Unicode NFC, trimmed).
   readonly text: string;
   readonly scope: SearchScope;
+  readonly match: MatchMode;
   readonly limit: number;
   readonly offset: number;
   readonly maxMatches: number;
@@ -37,7 +40,7 @@ export interface ResolvedSearch {
 }
 
 // Cleans the text, fills in the defaults and checks the values: the text must have at least one character
-// once cleaned, the scope must be one of `SEARCH_SCOPES`, `limit`, `maxMatches` and `snippetLength` whole
+// once cleaned, the scope must be one of `SEARCH_SCOPES`, the match one of `MATCH_MODES`, `limit`, `maxMatches` and `snippetLength` whole
 // numbers from 1 and `offset` a whole number from 0. It is the one place that knows these rules, so every
 // repository (memory, Memgraph) accepts and refuses the same requests.
 export function resolveSearch(text: string, options: SearchOptions = {}): ResolvedSearch {
@@ -49,6 +52,11 @@ export function resolveSearch(text: string, options: SearchOptions = {}): Resolv
   const scope = options.scope ?? DEFAULT_SEARCH_SCOPE;
   if (!SEARCH_SCOPES.includes(scope)) {
     throw new InvalidSearchError(`scope must be one of ${SEARCH_SCOPES.join(", ")}`);
+  }
+
+  const match = options.match ?? DEFAULT_MATCH_MODE;
+  if (!MATCH_MODES.includes(match)) {
+    throw new InvalidSearchError(`match must be one of ${MATCH_MODES.join(", ")}`);
   }
 
   const limit = options.limit ?? DEFAULT_SEARCH_LIMIT;
@@ -69,5 +77,5 @@ export function resolveSearch(text: string, options: SearchOptions = {}): Resolv
     throw new InvalidSearchError("offset must be a whole number from 0");
   }
 
-  return { text: cleanText, scope, limit, offset, maxMatches, snippetLength };
+  return { text: cleanText, scope, match, limit, offset, maxMatches, snippetLength };
 }
