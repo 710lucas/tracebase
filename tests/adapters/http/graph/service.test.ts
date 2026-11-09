@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { createInMemoryGraphRepository } from "../../../../src/adapters/memory/in-memory-graph-repository.ts";
 import { createGraphService } from "../../../../src/adapters/http/graph/service.ts";
 import { createAttribute } from "../../../../src/core/domain/attribute/index.ts";
-import { InvalidSearchError } from "../../../../src/core/ports/graph-repository/index.ts";
+import {
+  InvalidEntityQueryError,
+  InvalidSearchError,
+} from "../../../../src/core/ports/graph-repository/index.ts";
 import { createEntity, InvalidEntityError } from "../../../../src/core/domain/entity/index.ts";
 import { createRelation } from "../../../../src/core/domain/relation/index.ts";
 import { createProvenance } from "../../../../src/core/domain/provenance/index.ts";
@@ -124,4 +127,16 @@ test("searches the entities that contain a text and passes the options on", asyn
   assert.equal(page.limit, 5);
   assert.deepEqual((await service.searchEntities("nothing-has-this", {})).results, []);
   await assert.rejects(service.searchEntities("  ", {}), InvalidSearchError);
+});
+
+test("runs a structured query and lets the core's error reach the caller", async () => {
+  const service = await serviceWithAttribute();
+
+  const page = await service.queryEntities({ attributes: [{ name: "WEBSERVER_BANNER" }] }, {});
+  const counts = await service.queryEntities({ mode: "count" }, {});
+
+  assert.equal(page.mode, "list");
+  assert.deepEqual(page.mode === "list" ? page.results.map(({ entity }) => entity) : [], [address]);
+  assert.deepEqual(counts, { mode: "count", total: 1, byType: [{ type: "IP_ADDRESS", count: 1 }] });
+  await assert.rejects(service.queryEntities({ types: [] }, {}), InvalidEntityQueryError);
 });

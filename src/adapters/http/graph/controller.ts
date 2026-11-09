@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import {
+  InvalidEntityQueryError,
   InvalidNeighbourhoodOptionsError,
   InvalidSearchError,
   InvalidShortestPathOptionsError,
@@ -22,6 +23,10 @@ import {
   type ShortestPathRequest,
 } from "./middlewares/validate-shortest-path-request.ts";
 import { SEARCH_REQUEST_KEY, type SearchRequest } from "./middlewares/validate-search-request.ts";
+import {
+  ENTITY_QUERY_REQUEST_KEY,
+  type EntityQueryRequest,
+} from "./middlewares/validate-entity-query-request.ts";
 import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
@@ -209,6 +214,31 @@ export function createGraphController(service: GraphService) {
         response.status(constants.HTTP_STATUS_OK).json(await service.searchEntities(text, options));
       } catch (error) {
         if (error instanceof InvalidSearchError) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        if (error instanceof QueryTimeoutError) {
+          response
+            .status(constants.HTTP_STATUS_GATEWAY_TIMEOUT)
+            .json({ error: error.message, timeoutMs: error.timeoutMs });
+          return;
+        }
+
+        throw error;
+      }
+    },
+
+    // The entities that meet all the conditions of a structured query. `validateEntityQueryRequest` has already
+    // left the query and the time limit in `response.locals`. Answers 200 with a page (empty when nothing
+    // matches: that is an answer) or with the counts, 400 when the core finds the query makes no sense or an
+    // offset past the end, and 504 when the read ran out of time. Any other error is ours (500).
+    queryEntities: async (_request: Request, response: Response): Promise<void> => {
+      const { query, options } = response.locals[ENTITY_QUERY_REQUEST_KEY] as EntityQueryRequest;
+
+      try {
+        response.status(constants.HTTP_STATUS_OK).json(await service.queryEntities(query, options));
+      } catch (error) {
+        if (error instanceof InvalidEntityQueryError) {
           response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
           return;
         }

@@ -5,6 +5,8 @@ import type {
   EntityFindings,
   EntityNeighbourhood,
   EntityListQuery,
+  EntityQuery,
+  EntityQueryAnswer,
   EntitySearchPage,
   EntityPage,
   EntityTypeCount,
@@ -30,6 +32,7 @@ export interface GraphService {
     options: QueryOptions & ShortestPathOptions,
   ): Promise<ShortestPath | null>;
   searchEntities(text: string, options: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
+  queryEntities(query: EntityQuery, options: QueryOptions): Promise<EntityQueryAnswer>;
   listEntityTypes(): Promise<EntityTypeCount[]>;
   listEntities(query: EntityListQuery): Promise<EntityPage>;
 }
@@ -61,6 +64,11 @@ export interface GraphService {
 // finds nothing is an empty page; a text without a character or an option that makes no sense ends in
 // `InvalidSearchError`, a read that runs out of time in `QueryTimeoutError`.
 //
+// `queryEntities`: asks for the entities that meet all the conditions of a structured query (types, value,
+// attributes, provenance), as a page or as counts, with the time limit given. A query that finds nothing is an
+// empty page or a zero count; a query that makes no sense ends in `InvalidEntityQueryError`, a read that runs
+// out of time in `QueryTimeoutError`.
+//
 // `listEntityTypes` and `listEntities`: the entity types with their counts, and a page of the entities
 // of one type, for browsing what is there.
 export function createGraphService(repository: GraphRepository): GraphService {
@@ -81,6 +89,8 @@ export function createGraphService(repository: GraphRepository): GraphService {
       ),
 
     searchEntities: async (text, options) => repository.searchEntities(text, options),
+
+    queryEntities: async (query, options) => repository.queryEntities(query, options),
 
     listEntityTypes: () => repository.listEntityTypes(),
 
