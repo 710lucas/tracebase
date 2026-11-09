@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import type { GraphRepository } from "../../core/ports/graph-repository/index.ts";
+import { createMcpRouter } from "../mcp/router.ts";
 import { createGraphRouter } from "./graph/router.ts";
 import { createImportsRouter } from "./imports/router.ts";
 import { notFoundHandler } from "./not-found-handler.ts";
@@ -10,6 +11,7 @@ import { createStatusRouter } from "./status/router.ts";
 const IMPORTS_MOUNT_PATH = "/imports";
 const GRAPH_MOUNT_PATH = "/graph";
 const STATUS_MOUNT_PATH = "/status";
+const MCP_MOUNT_PATH = "/mcp";
 
 // What the application needs from the outside: where the graph is stored, how the process was
 // configured (for the status route) and, optionally, the folder with the built front end.
@@ -35,6 +37,8 @@ export function createApp({ graphRepository, runtimeInfo, webRoot }: AppDependen
   app.use(GRAPH_MOUNT_PATH, createGraphRouter(graphRepository));
 
   app.use(STATUS_MOUNT_PATH, createStatusRouter(graphRepository, runtimeInfo));
+
+  app.use(MCP_MOUNT_PATH, createMcpRouter(graphRepository));
 
   if (webRoot !== undefined) {
     app.use(express.static(webRoot));
