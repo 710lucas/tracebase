@@ -3,8 +3,8 @@ import type cytoscape from "cytoscape";
 // How the nodes of the graph are placed. The choices are data, so the page can list them and the tests can read them.
 
 export const LAYOUTS = [
-  { value: "sectors", label: "Spread, grouped by type" },
-  { value: "grouped", label: "Grouped by type (boxes)" },
+  { value: "grouped", label: "Grouped by type" },
+  { value: "sectors", label: "Spread, grouped by type (no boxes)" },
   { value: "force", label: "Spread out" },
   { value: "rings", label: "Rings by distance" },
 ] as const;
@@ -20,7 +20,7 @@ export const SPACINGS = [
 
 export type GraphSpacing = (typeof SPACINGS)[number]["value"];
 
-export const DEFAULT_LAYOUT: GraphLayout = "sectors";
+export const DEFAULT_LAYOUT: GraphLayout = "grouped";
 export const DEFAULT_SPACING: GraphSpacing = "normal";
 
 const PADDING = 40;
@@ -44,6 +44,12 @@ export interface PlacedEntity {
   distance: number;
 }
 
+// A relation between two entities, by their ids.
+export interface Link {
+  source: string;
+  target: string;
+}
+
 export interface Point {
   x: number;
   y: number;
@@ -51,15 +57,18 @@ export interface Point {
 
 // The room one entity takes in its cluster, and the least space between two clusters, at spacing 1.
 const CELL = 46;
-const CLUSTER_GAP = 70;
+const CLUSTER_GAP = 130;
 
 // Where each entity goes in the grouped layout: the origin in the middle, and the others in one cluster for each
 // type, the clusters on a circle around it. Inside a cluster the entities are in rows, in the order they come. The
 // circle is as big as it takes for the clusters not to touch, and a wider spacing makes the cells and the gaps bigger.
-// Nothing here is random, so the same graph is always drawn the same way.
+// The types that have the most relations between them are put next to each other on the circle (see
+// `orderByAffinity`), so those relations are short and do not cross the drawing. Nothing here is random, so the same
+// graph is always drawn the same way.
 export function clusterPositions(
   entities: readonly PlacedEntity[],
   spacing: GraphSpacing,
+  links: readonly Link[] = [],
 ): Map<string, Point> {
   const factor = spacingFactor(spacing);
   const cell = CELL * factor;
@@ -74,13 +83,11 @@ export function clusterPositions(
     }
   }
 
-  const clusters = [...byType]
-    .sort(([first], [second]) => first.localeCompare(second))
-    .map(([, members]) => {
-      const columns = Math.max(1, Math.ceil(Math.sqrt(members.length * 1.4)));
-      const rows = Math.ceil(members.length / columns);
-      return { members, columns, width: columns * cell, height: rows * cell };
-    });
+  const clusters = orderByAffinity(byType, links).map(([, members]) => {
+    const columns = Math.max(1, Math.ceil(Math.sqrt(members.length * 1.4)));
+    const rows = Math.ceil(members.length / columns);
+    return { members, columns, width: columns * cell, height: rows * cell };
+  });
   if (clusters.length === 0) return positions;
 
   const radii = clusters.map(({ width, height }) => Math.hypot(width, height) / 2);
@@ -173,6 +180,50 @@ export function sectorPositions(
   return positions;
 }
 
+// The order of the clusters around the circle: the biggest type first, and then each time the type with the most
+// relations to the one just placed (ties: the bigger type, then the name). Types that are linked end up side by side,
+// which keeps their relations short. The relations of the origin are left out: it is linked to everything.
+function orderByAffinity(
+  byType: ReadonlyMap<string, PlacedEntity[]>,
+  links: readonly Link[],
+): [string, PlacedEntity[]][] {
+  const typeOf = new Map<string, string>();
+  for (const [type, members] of byType) {
+    for (const { id } of members) typeOf.set(id, type);
+  }
+
+  const affinity = new Map<string, number>();
+  const key = (first: string, second: string) => JSON.stringify([first, second].sort());
+  for (const { source, target } of links) {
+    const [from, to] = [typeOf.get(source), typeOf.get(target)];
+    if (from !== undefined && to !== undefined && from !== to) {
+      affinity.set(key(from, to), (affinity.get(key(from, to)) ?? 0) + 1);
+    }
+  }
+
+  const sizeOf = (type: string) => byType.get(type)?.length ?? 0;
+  const biggestFirst = (first: string, second: string) =>
+    sizeOf(second) - sizeOf(first) || first.localeCompare(second);
+
+  const remaining = [...byType.keys()].sort(biggestFirst);
+  const ordered: string[] = [];
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1];
+    const next =
+      last === undefined
+        ? (remaining[0] as string)
+        : [...remaining].sort(
+            (first, second) =>
+              (affinity.get(key(last, second)) ?? 0) - (affinity.get(key(last, first)) ?? 0) ||
+              biggestFirst(first, second),
+          )[0];
+    ordered.push(next as string);
+    remaining.splice(remaining.indexOf(next as string), 1);
+  }
+
+  return ordered.map((type) => [type, byType.get(type) as PlacedEntity[]]);
+}
+
 // What Cytoscape needs to place the nodes. `fresh` is the first drawing, or a change of layout: it starts from scratch
 // and fits the whole graph in the view; without it (an expansion) what is already there stays where it is.
 //
@@ -189,11 +240,12 @@ export function layoutOptions(
   spacing: GraphSpacing,
   fresh: boolean,
   entities: readonly PlacedEntity[] = [],
+  links: readonly Link[] = [],
 ): cytoscape.LayoutOptions {
   const factor = spacingFactor(spacing);
 
   if (layout === "grouped") {
-    const positions = clusterPositions(entities, spacing);
+    const positions = clusterPositions(entities, spacing, links);
     return {
       name: "preset",
       positions: (node: cytoscape.NodeSingular) => positions.get(node.id()) ?? { x: 0, y: 0 },

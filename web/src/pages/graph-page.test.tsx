@@ -188,11 +188,11 @@ test("Show all types undoes the filter", async () => {
   expect(screen.queryByRole("button", { name: "Show all types" })).toBeNull();
 });
 
-test("draws with the types in wedges and normal spacing at first, and the selectors change it", async () => {
+test("draws grouped by type with normal spacing at first, and the selectors change it", async () => {
   stubApi({ [URL_2_200]: ok(neighbourhood) });
 
   renderApp(ADDRESS);
-  expect(await screen.findByText("layout sectors normal")).toBeTruthy();
+  expect(await screen.findByText("layout grouped normal")).toBeTruthy();
 
   fireEvent.change(screen.getByLabelText("Layout"), { target: { value: "rings" } });
   fireEvent.change(screen.getByLabelText("Spacing"), { target: { value: "wide" } });
@@ -206,7 +206,7 @@ test("the layout stays when the neighbourhood is asked again", async () => {
   stubApi({ [URL_2_200]: ok(neighbourhood), [more]: ok(neighbourhood) });
 
   renderApp(ADDRESS);
-  await screen.findByText("layout sectors normal");
+  await screen.findByText("layout grouped normal");
   fireEvent.change(screen.getByLabelText("Layout"), { target: { value: "force" } });
   fireEvent.change(screen.getByLabelText(/Relations away/), { target: { value: "4" } });
 

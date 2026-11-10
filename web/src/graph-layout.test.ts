@@ -12,10 +12,10 @@ import {
   type Point,
 } from "./graph-layout.ts";
 
-test("the default layout spreads the types in wedges and the default spacing is normal", () => {
-  expect(DEFAULT_LAYOUT).toBe("sectors");
+test("the default layout groups the types in boxes and the default spacing is normal", () => {
+  expect(DEFAULT_LAYOUT).toBe("grouped");
   expect(DEFAULT_SPACING).toBe("normal");
-  expect(LAYOUTS.map(({ value }) => value)).toEqual(["sectors", "grouped", "force", "rings"]);
+  expect(LAYOUTS.map(({ value }) => value)).toEqual(["grouped", "sectors", "force", "rings"]);
   expect(SPACINGS.map(({ value }) => value)).toEqual(["compact", "normal", "wide"]);
 });
 
@@ -258,4 +258,72 @@ test("sectors: the nearer entities of a type come first, on the inner arc", () =
 test("sectors: with nothing but the origin, it is in the middle and alone", () => {
   expect([...sectorPositions([entity("o", "A", 0)], "normal")]).toEqual([["o", { x: 0, y: 0 }]]);
   expect(sectorPositions([], "normal").size).toBe(0);
+});
+
+// The position of the middle of a type's cluster, as its angle around the origin counted in steps of the circle.
+function stepsAround(positions: Map<string, Point>, prefix: string, clusters: number): number {
+  const points = [...positions].filter(([id]) => id.startsWith(prefix)).map(([, point]) => point);
+  const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  return Math.round(
+    (((Math.atan2(y, x) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI)) * clusters,
+  );
+}
+
+test("types with many relations between them are next to each other on the circle", () => {
+  const ids = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, index) => `${prefix}${index}`);
+  const entities = [
+    entity("o", "O", 0),
+    ...ids("a", 6).map((id) => entity(id, "A")),
+    ...ids("b", 5).map((id) => entity(id, "B")),
+    ...ids("c", 4).map((id) => entity(id, "C")),
+    ...ids("d", 3).map((id) => entity(id, "D")),
+  ];
+  // A is linked to C, and B to D, and nothing else; the alphabet would put A next to B.
+  const links = [
+    ...ids("a", 4).map((id, index) => ({ source: id, target: `c${index}` })),
+    ...ids("b", 3).map((id, index) => ({ source: id, target: `d${index}` })),
+  ];
+
+  const positions = clusterPositions(entities, "normal", links);
+  const steps = (prefix: string) => stepsAround(positions, prefix, 4);
+  const apart = (first: string, second: string) => {
+    const difference = Math.abs(steps(first) - steps(second));
+    return Math.min(difference, 4 - difference);
+  };
+
+  expect(apart("a", "c")).toBe(1);
+  expect(apart("b", "d")).toBe(1);
+});
+
+test("the relations of the origin do not decide the order", () => {
+  const entities = [entity("o", "O", 0), entity("a", "A"), entity("b", "B")];
+
+  const withOrigin = clusterPositions(entities, "normal", [
+    { source: "o", target: "a" },
+    { source: "o", target: "b" },
+  ]);
+
+  expect(withOrigin).toEqual(clusterPositions(entities, "normal"));
+});
+
+test("the clusters are farther apart than before", () => {
+  const entities = [
+    entity("o", "O", 0),
+    ...Array.from({ length: 20 }, (_, index) => entity(`a${index}`, "A")),
+    ...Array.from({ length: 20 }, (_, index) => entity(`b${index}`, "B")),
+  ];
+  const positions = clusterPositions(entities, "normal");
+  const nearest = Math.min(
+    ...[...positions]
+      .filter(([id]) => id.startsWith("a"))
+      .flatMap(([, first]) =>
+        [...positions]
+          .filter(([id]) => id.startsWith("b"))
+          .map(([, second]) => Math.hypot(first.x - second.x, first.y - second.y)),
+      ),
+  );
+
+  expect(nearest).toBeGreaterThan(130);
 });

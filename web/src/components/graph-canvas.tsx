@@ -221,7 +221,11 @@ function place(
     type: node.data("type") as string,
     distance: node.data("distance") as number,
   }));
-  instance.layout(layoutOptions(layout, spacing, fresh, entities)).run();
+  const links = instance.edges().map((edge) => ({
+    source: edge.data("source") as string,
+    target: edge.data("target") as string,
+  }));
+  instance.layout(layoutOptions(layout, spacing, fresh, entities, links)).run();
 }
 
 // With `grouped` each entity is the child of the box of its type, made when it is needed; without it the entities
