@@ -46,16 +46,18 @@ export function colorOfType(type: string): string {
   return `hsl(${hash}, 60%, 52%)`;
 }
 
-// The origin is at distance 0. The relations seen by several runs are several relations in the graph but one
-// line in the drawing: an edge is drawn once for each source, target and type.
-export function toGraphElements(neighbourhood: Neighbourhood): GraphElements {
+// The origin is at distance `originDistance` (0 for the first neighbourhood drawn; the distance of the entity that was
+// expanded, for the neighbourhood of an expansion) and the others are that much farther. The relations seen by several
+// runs are several relations in the graph but one line in the drawing: an edge is drawn once for each source, target
+// and type.
+export function toGraphElements(neighbourhood: Neighbourhood, originDistance = 0): GraphElements {
   const entities = [{ ...neighbourhood.origin, distance: 0 }, ...neighbourhood.entities];
   const nodes = entities.map((entity) => ({
     data: {
       id: entityId(entity),
       type: entity.type,
       value: entity.value,
-      distance: entity.distance,
+      distance: originDistance + entity.distance,
       color: colorOfType(entity.type),
     },
   }));
@@ -74,4 +76,16 @@ export function toGraphElements(neighbourhood: Neighbourhood): GraphElements {
   }
 
   return { nodes, edges: [...edges.values()] };
+}
+
+// Adds what an expansion found to what is drawn. What is already there stays as it is (a node keeps the distance it
+// had from the first origin) and only the new nodes and edges are added.
+export function mergeElements(current: GraphElements, added: GraphElements): GraphElements {
+  const nodeIds = new Set(current.nodes.map(({ data }) => data.id));
+  const edgeIds = new Set(current.edges.map(({ data }) => data.id));
+
+  return {
+    nodes: [...current.nodes, ...added.nodes.filter(({ data }) => !nodeIds.has(data.id))],
+    edges: [...current.edges, ...added.edges.filter(({ data }) => !edgeIds.has(data.id))],
+  };
 }

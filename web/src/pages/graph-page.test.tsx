@@ -144,3 +144,95 @@ test("shows the error when the API fails", async () => {
 
   expect(await screen.findByText(/Query exceeded 30 s/)).toBeTruthy();
 });
+
+const EXPAND_URL =
+  "/graph/entities/neighbourhood?type=DOMAIN_NAME&value=a.example.com&hops=1&maxEntities=200";
+const asn = { type: "ASN", value: "AS1" };
+const expansion = {
+  origin: { type: "DOMAIN_NAME", value: "a.example.com" },
+  hops: 1,
+  maxEntities: 200,
+  entities: [
+    { type: "IP_ADDRESS", value: "10.0.0.1", distance: 1 },
+    { ...asn, distance: 1 },
+  ],
+  relations: [
+    {
+      source: { type: "DOMAIN_NAME", value: "a.example.com" },
+      target: asn,
+    },
+  ],
+  truncated: false,
+};
+
+test("expanding the selected node draws its relations on top of what is there", async () => {
+  const { calls } = stubApi({ [URL_2_200]: ok(neighbourhood), [EXPAND_URL]: ok(expansion) });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByText("click a node"));
+  fireEvent.click(await screen.findByRole("button", { name: "Expand" }));
+
+  expect(await screen.findByText("node AS1")).toBeTruthy();
+  // The two nodes that were there stay, the only new one is the ASN, and the new link is one more edge.
+  expect(screen.getAllByText(/^node /)).toHaveLength(3);
+  expect(screen.getByText("edges 2")).toBeTruthy();
+  expect(screen.getByText("1 new entity.")).toBeTruthy();
+  expect(calls).toEqual([URL_2_200, EXPAND_URL]);
+});
+
+test("an expansion that finds nothing new says so", async () => {
+  stubApi({
+    [URL_2_200]: ok(neighbourhood),
+    [EXPAND_URL]: ok({ ...expansion, entities: [], relations: [] }),
+  });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByText("click a node"));
+  fireEvent.click(await screen.findByRole("button", { name: "Expand" }));
+
+  expect(await screen.findByText("No new entity.")).toBeTruthy();
+});
+
+test("an expansion that is cut says how to see more", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood), [EXPAND_URL]: ok({ ...expansion, truncated: true }) });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByText("click a node"));
+  fireEvent.click(await screen.findByRole("button", { name: "Expand" }));
+
+  expect(await screen.findByText(/More exist/)).toBeTruthy();
+});
+
+test("an expansion that fails shows the error and keeps the drawing", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood), [EXPAND_URL]: failure(504, "Query exceeded 30 s") });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByText("click a node"));
+  fireEvent.click(await screen.findByRole("button", { name: "Expand" }));
+
+  expect(await screen.findByText(/Could not expand: Query exceeded 30 s/)).toBeTruthy();
+  expect(screen.getByText("node a.example.com")).toBeTruthy();
+});
+
+test("a new hops choice starts again from the neighbourhood of the address", async () => {
+  const more =
+    "/graph/entities/neighbourhood?type=IP_ADDRESS&value=10.0.0.1&hops=3&maxEntities=200";
+  stubApi({
+    [URL_2_200]: ok(neighbourhood),
+    [EXPAND_URL]: ok(expansion),
+    [more]: ok(neighbourhood),
+  });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByText("click a node"));
+  fireEvent.click(await screen.findByRole("button", { name: "Expand" }));
+  await screen.findByText("node AS1");
+  fireEvent.change(screen.getByLabelText(/Relations away/), { target: { value: "3" } });
+
+  await vi.waitFor(() => expect(screen.queryByText("node AS1")).toBeNull());
+});

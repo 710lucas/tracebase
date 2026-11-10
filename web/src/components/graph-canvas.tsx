@@ -102,12 +102,60 @@ export function GraphCanvas({ elements, originId, onSelect }: GraphCanvasProps) 
     const instance = graph.current;
     if (instance === null) return;
 
-    instance.elements().remove();
-    instance.add([...elements.nodes, ...elements.edges]);
+    const drawnBefore = instance.nodes().length > 0;
+    const wanted = new Set([...elements.nodes, ...elements.edges].map(({ data }) => data.id));
+    instance
+      .elements()
+      .filter((element) => !wanted.has(element.id()))
+      .remove();
+
+    const newNodes = elements.nodes.filter(({ data }) => instance.getElementById(data.id).empty());
+    const newEdges = elements.edges.filter(({ data }) => instance.getElementById(data.id).empty());
+    // A node that was not there yet starts next to a node it is linked to that was already drawn, so an expansion
+    // grows where it was asked and the layout only has to settle it.
+    instance.add([
+      ...newNodes.map((node) => ({
+        ...node,
+        position: startingPlace(instance, node.data.id, newEdges),
+      })),
+      ...newEdges,
+    ]);
+    if (newNodes.length === 0 && newEdges.length === 0 && drawnBefore) return;
+
     instance.nodes().toggleClass("labelled", elements.nodes.length <= SMALL_GRAPH);
-    instance.layout({ name: "cose", animate: false, fit: true, padding: 30 }).run();
+    // The first drawing starts from scratch and fits the whole graph in the view; an expansion keeps what is
+    // there where it is and the view where it is.
+    instance
+      .layout({
+        name: "cose",
+        animate: false,
+        randomize: !drawnBefore,
+        fit: !drawnBefore,
+        padding: 30,
+      })
+      .run();
     instance.$id(originId).select();
   }, [elements, originId]);
 
   return <div ref={container} className="graph-canvas" data-testid="graph-canvas" />;
+}
+
+// Where a new node is first put: close to a node it has a relation with that is already drawn, with a small random
+// shift so that nodes of the same expansion do not start on the same point. Without such a node, at the middle.
+function startingPlace(
+  instance: cytoscape.Core,
+  id: string,
+  edges: readonly { data: { source: string; target: string } }[],
+): { x: number; y: number } {
+  const shift = () => (Math.random() - 0.5) * 40;
+  for (const { data } of edges) {
+    const otherId = data.source === id ? data.target : data.target === id ? data.source : undefined;
+    const other = otherId === undefined ? undefined : instance.getElementById(otherId);
+    if (other !== undefined && other.nonempty() && other.isNode()) {
+      const { x, y } = other.position();
+      return { x: x + shift(), y: y + shift() };
+    }
+  }
+
+  return { x: 0, y: 0 };
 }
