@@ -237,3 +237,42 @@ ul.plain li {
   border-radius: 4px;
   background: var(--accent);
 }
+
+.search select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.search label {
+  display: flex;
+  align-items: center;
+}
+
+.graph-layout {
+  display: grid;
+  grid-template-columns: 1fr 17rem;
+  gap: 1rem;
+}
+
+.graph-canvas {
+  height: 34rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.graph-side h2 {
+  margin-top: 0;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}

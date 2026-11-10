@@ -71,6 +71,17 @@ export interface ConnectedEntity {
   outgoing: number;
 }
 
+// The neighbourhood of an entity in its lean shape (see `docs/graph-read.md`): who is near, at which distance, and
+// who is linked to whom. Only what the graph view uses is listed.
+export interface Neighbourhood {
+  origin: EntityRef;
+  hops: number;
+  maxEntities: number;
+  entities: (EntityRef & { distance: number })[];
+  relations: { source: EntityRef; target: EntityRef; type?: string }[];
+  truncated: boolean;
+}
+
 export interface StatusReport {
   storage: "memory" | "memgraph";
   memgraphUrl?: string;

@@ -3,6 +3,7 @@ import { Layout } from "./components/layout.tsx";
 import { DashboardPage } from "./pages/dashboard-page.tsx";
 import { EntityListPage } from "./pages/entity-list-page.tsx";
 import { EntityPage } from "./pages/entity-page.tsx";
+import { GraphPage } from "./pages/graph-page.tsx";
 import { ImportsPage } from "./pages/imports-page.tsx";
 import { NotFoundPage } from "./pages/not-found-page.tsx";
 import { StatusPage } from "./pages/status-page.tsx";
@@ -19,6 +20,7 @@ export function App() {
         <Route path="/imports" element={<ImportsPage />} />
         <Route path="/browse" element={<TypesPage />} />
         <Route path="/browse/:type" element={<EntityListPage />} />
+        <Route path="/graph" element={<GraphPage />} />
         <Route path="/entity" element={<EntityPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

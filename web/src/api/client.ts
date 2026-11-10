@@ -1,9 +1,11 @@
 import type {
   ConnectedEntity,
   EntityFindings,
+  EntityRef,
   EntityListOptions,
   EntityPage,
   EntityTypeCount,
+  Neighbourhood,
   RunSummary,
   StatusReport,
 } from "./types.ts";
@@ -64,6 +66,27 @@ export function getEntities(type: string, options: EntityListOptions): Promise<E
   if (options.search !== "") query.set("search", options.search);
 
   return getJson(`/graph/types/${encodeURIComponent(type)}/entities?${query}`);
+}
+
+// The entities within `hops` relations of one entity, at most `maxEntities` of them. `null` when nothing in the graph
+// mentions the entity.
+export async function getNeighbourhood(
+  entity: EntityRef,
+  options: { hops: number; maxEntities: number },
+): Promise<Neighbourhood | null> {
+  const query = new URLSearchParams({
+    type: entity.type,
+    value: entity.value,
+    hops: String(options.hops),
+    maxEntities: String(options.maxEntities),
+  });
+
+  try {
+    return await getJson(`/graph/entities/neighbourhood?${query}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === NOT_FOUND) return null;
+    throw error;
+  }
 }
 
 export async function getMostConnected(limit: number): Promise<ConnectedEntity[]> {

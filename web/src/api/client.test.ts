@@ -1,5 +1,12 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, getEntities, getEntity, getMostConnected, getRuns } from "./client.ts";
+import {
+  ApiError,
+  getEntities,
+  getEntity,
+  getMostConnected,
+  getNeighbourhood,
+  getRuns,
+} from "./client.ts";
 import { failure, ok, stubApi } from "../test/stub-api.ts";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -55,4 +62,25 @@ test("asks for the most connected entities with the limit and gives the list", a
 
   expect(await getMostConnected(5)).toEqual([connected]);
   expect(calls).toEqual(["/graph/most-connected?limit=5"]);
+});
+
+test("asks for the lean neighbourhood with the hops and the maximum of entities", async () => {
+  const { calls } = stubApi({
+    "/graph/entities/neighbourhood?type=A&value=B&hops=2&maxEntities=200": ok({ origin: {} }),
+  });
+
+  await getNeighbourhood({ type: "A", value: "B" }, { hops: 2, maxEntities: 200 });
+
+  expect(calls).toEqual(["/graph/entities/neighbourhood?type=A&value=B&hops=2&maxEntities=200"]);
+});
+
+test("a neighbourhood of an entity nothing mentions is null, not an error", async () => {
+  stubApi({
+    "/graph/entities/neighbourhood?type=A&value=B&hops=1&maxEntities=5": failure(
+      404,
+      "entity not found",
+    ),
+  });
+
+  expect(await getNeighbourhood({ type: "A", value: "B" }, { hops: 1, maxEntities: 5 })).toBeNull();
 });

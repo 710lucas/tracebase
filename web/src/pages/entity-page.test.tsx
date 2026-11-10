@@ -55,6 +55,15 @@ test("shows the relations as seen from the entity and links to the other end", a
   expect(screen.getByText("unnamed")).toBeTruthy();
 });
 
+test("links to the neighbourhood of the entity drawn as a graph", async () => {
+  stubApi({ "/graph/entities?type=IP_ADDRESS&value=93.184.216.34": ok(findings) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+
+  const link = await screen.findByRole("link", { name: "View as a graph" });
+  expect(link.getAttribute("href")).toBe("/graph?type=IP_ADDRESS&value=93.184.216.34");
+});
+
 test("lists the attributes by name, the newest value first", async () => {
   stubApi({ "/graph/entities?type=IP_ADDRESS&value=93.184.216.34": ok(findings) });
 

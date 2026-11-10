@@ -22,7 +22,8 @@ export function EntityPage() {
       </p>
       <h1 className="value">{value}</h1>
       <p>
-        <span className="badge">{type}</span>
+        <span className="badge">{type}</span>{" "}
+        <Link to={`/graph?${new URLSearchParams({ type, value })}`}>View as a graph</Link>
       </p>
 
       <RequestView state={state}>
