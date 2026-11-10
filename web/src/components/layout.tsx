@@ -5,6 +5,7 @@ const SECTIONS = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/", label: "Status" },
   { to: "/imports", label: "Imports" },
+  { to: "/compare", label: "Compare" },
   { to: "/browse", label: "Browse" },
 ];
 

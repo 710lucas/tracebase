@@ -82,6 +82,27 @@ export interface Neighbourhood {
   truncated: boolean;
 }
 
+export interface RunRef {
+  tool: string;
+  run: string;
+}
+
+// A group of entities of a comparison of two runs (see `docs/graph-read.md`).
+export interface ComparedEntities {
+  total: number;
+  byType: EntityTypeCount[];
+  entities: EntityRef[];
+  truncated: boolean;
+}
+
+export interface RunComparison {
+  a: RunRef;
+  b: RunRef;
+  onlyA: ComparedEntities;
+  both: ComparedEntities;
+  onlyB: ComparedEntities;
+}
+
 export interface StatusReport {
   storage: "memory" | "memgraph";
   memgraphUrl?: string;

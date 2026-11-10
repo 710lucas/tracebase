@@ -119,3 +119,5 @@ export type {
 } from "./most-connected-options.ts";
 export { rankMostConnected } from "./most-connected.ts";
 export type { ConnectedEntity } from "./most-connected.ts";
+export { createRunComparison } from "./run-comparison.ts";
+export type { ComparedEntities, RunComparison, RunRef } from "./run-comparison.ts";

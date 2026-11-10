@@ -1,6 +1,8 @@
 import { Router, text } from "express";
 import type { GraphRepository } from "../../../core/ports/graph-repository/index.ts";
 import { createImportsController } from "./controller.ts";
+import { validateCompareRunsRequest } from "./middlewares/validate-compare-runs-request.ts";
+import { validateQueryOptionsRequest } from "../graph/middlewares/validate-query-options-request.ts";
 import { validateImportRequest } from "./middlewares/validate-import-request.ts";
 import { createImportsService } from "./service.ts";
 
@@ -23,6 +25,13 @@ export function createImportsRouter(graphRepository: GraphRepository): Router {
   );
 
   router.get("/", controller.listRuns);
+
+  router.get(
+    "/compare",
+    validateCompareRunsRequest,
+    validateQueryOptionsRequest,
+    controller.compareRuns,
+  );
 
   return router;
 }

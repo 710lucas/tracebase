@@ -6,6 +6,8 @@ import type {
   EntityPage,
   EntityTypeCount,
   Neighbourhood,
+  RunComparison,
+  RunRef,
   RunSummary,
   StatusReport,
 } from "./types.ts";
@@ -83,6 +85,28 @@ export async function getNeighbourhood(
 
   try {
     return await getJson(`/graph/entities/neighbourhood?${query}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === NOT_FOUND) return null;
+    throw error;
+  }
+}
+
+// The entities two runs saw, side by side. `null` when a run is not in the graph.
+export async function compareRuns(
+  a: RunRef,
+  b: RunRef,
+  limit: number,
+): Promise<RunComparison | null> {
+  const query = new URLSearchParams({
+    aTool: a.tool,
+    aRun: a.run,
+    bTool: b.tool,
+    bRun: b.run,
+    limit: String(limit),
+  });
+
+  try {
+    return await getJson(`/imports/compare?${query}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === NOT_FOUND) return null;
     throw error;
