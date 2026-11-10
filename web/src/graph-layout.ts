@@ -3,7 +3,8 @@ import type cytoscape from "cytoscape";
 // How the nodes of the graph are placed. The choices are data, so the page can list them and the tests can read them.
 
 export const LAYOUTS = [
-  { value: "grouped", label: "Grouped by type" },
+  { value: "sectors", label: "Spread, grouped by type" },
+  { value: "grouped", label: "Grouped by type (boxes)" },
   { value: "force", label: "Spread out" },
   { value: "rings", label: "Rings by distance" },
 ] as const;
@@ -19,7 +20,7 @@ export const SPACINGS = [
 
 export type GraphSpacing = (typeof SPACINGS)[number]["value"];
 
-export const DEFAULT_LAYOUT: GraphLayout = "grouped";
+export const DEFAULT_LAYOUT: GraphLayout = "sectors";
 export const DEFAULT_SPACING: GraphSpacing = "normal";
 
 const PADDING = 40;
@@ -112,12 +113,74 @@ export function clusterPositions(
   return positions;
 }
 
+// How far from the origin the first arc is, and the room between two entities on an arc and between two arcs, at
+// spacing 1.
+const FIRST_ARC = 110;
+const ARC_CELL = 40;
+// The empty angle left between two wedges, in radians.
+const WEDGE_GAP = 0.08;
+
+// Where each entity goes in the sectors layout: the origin in the middle and, around it, one wedge for each type (in
+// alphabetical order). A wedge is as wide as its share of the entities (with a minimum, so a type with one entity is
+// still a visible wedge). The entities of a type are on arcs inside its wedge: the first arc is near the middle, the next
+// one farther, and each arc holds as many as fit with `ARC_CELL` between them, so a big type grows outward instead of
+// crowding. Within a type the entities come ordered by distance from the origin and then by value. Nothing is random.
+export function sectorPositions(
+  entities: readonly PlacedEntity[],
+  spacing: GraphSpacing,
+): Map<string, Point> {
+  const factor = spacingFactor(spacing);
+  const cell = ARC_CELL * factor;
+  const positions = new Map<string, Point>();
+
+  const byType = new Map<string, PlacedEntity[]>();
+  for (const entity of entities) {
+    if (entity.distance === 0) {
+      positions.set(entity.id, { x: 0, y: 0 });
+    } else {
+      byType.set(entity.type, [...(byType.get(entity.type) ?? []), entity]);
+    }
+  }
+  if (byType.size === 0) return positions;
+
+  const types = [...byType].sort(([first], [second]) => first.localeCompare(second));
+  const weightOf = (members: readonly PlacedEntity[]) => members.length + 2;
+  const totalWeight = types.reduce((sum, [, members]) => sum + weightOf(members), 0);
+
+  let start = -Math.PI / 2;
+  for (const [, members] of types) {
+    const span = (2 * Math.PI * weightOf(members)) / totalWeight;
+    const usable = Math.max(span - WEDGE_GAP, 0.05);
+    const ordered = [...members].sort(
+      (first, second) => first.distance - second.distance || first.id.localeCompare(second.id),
+    );
+
+    let placed = 0;
+    for (let arc = 0; placed < ordered.length; arc += 1) {
+      const radius = FIRST_ARC * factor + arc * cell;
+      const room = Math.max(1, Math.floor((usable * radius) / cell));
+      const onThisArc = ordered.slice(placed, placed + room);
+      onThisArc.forEach((member, index) => {
+        const angle = start + WEDGE_GAP / 2 + (usable * (index + 0.5)) / onThisArc.length;
+        positions.set(member.id, { x: radius * Math.cos(angle), y: radius * Math.sin(angle) });
+      });
+      placed += onThisArc.length;
+    }
+
+    start += span;
+  }
+
+  return positions;
+}
+
 // What Cytoscape needs to place the nodes. `fresh` is the first drawing, or a change of layout: it starts from scratch
 // and fits the whole graph in the view; without it (an expansion) what is already there stays where it is.
 //
 // - grouped: the clusters of `clusterPositions`, with a box around each type (made by the canvas). It places everything
 //   again each time, because a cluster grows when an expansion adds to it, and moves with an animation unless it is
 //   the first drawing.
+// - sectors: the origin in the middle and each type in a wedge of its own around it, its entities on arcs that
+//   grow outward from the middle. No boxes: the types are told apart by where they are and by their colour.
 // - force: a force layout (`cose`), where the nodes push each other away and the relations pull them together; the
 //   spacing makes the push stronger and the relations longer.
 // - rings: the origin in the middle and each distance on a ring around it.
@@ -131,6 +194,18 @@ export function layoutOptions(
 
   if (layout === "grouped") {
     const positions = clusterPositions(entities, spacing);
+    return {
+      name: "preset",
+      positions: (node: cytoscape.NodeSingular) => positions.get(node.id()) ?? { x: 0, y: 0 },
+      fit: true,
+      padding: PADDING,
+      animate: !fresh,
+      animationDuration: 300,
+    } as cytoscape.LayoutOptions;
+  }
+
+  if (layout === "sectors") {
+    const positions = sectorPositions(entities, spacing);
     return {
       name: "preset",
       positions: (node: cytoscape.NodeSingular) => positions.get(node.id()) ?? { x: 0, y: 0 },

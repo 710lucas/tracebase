@@ -6,15 +6,16 @@ import {
   groupIdOf,
   LAYOUTS,
   layoutOptions,
+  sectorPositions,
   SPACINGS,
   spacingFactor,
   type Point,
 } from "./graph-layout.ts";
 
-test("the default layout groups by type and the default spacing is normal", () => {
-  expect(DEFAULT_LAYOUT).toBe("grouped");
+test("the default layout spreads the types in wedges and the default spacing is normal", () => {
+  expect(DEFAULT_LAYOUT).toBe("sectors");
   expect(DEFAULT_SPACING).toBe("normal");
-  expect(LAYOUTS.map(({ value }) => value)).toEqual(["grouped", "force", "rings"]);
+  expect(LAYOUTS.map(({ value }) => value)).toEqual(["sectors", "grouped", "force", "rings"]);
   expect(SPACINGS.map(({ value }) => value)).toEqual(["compact", "normal", "wide"]);
 });
 
@@ -164,4 +165,97 @@ test("two clusters next to each other on the circle do not touch", () => {
   expect(apart("a", "b")).toBeGreaterThan(300);
   expect(apart("b", "c")).toBeGreaterThan(300);
   expect(apart("a", "c")).toBeGreaterThan(300);
+});
+
+test("the sectors layout places the nodes with preset positions", () => {
+  const options = layoutOptions("sectors", "normal", true, [
+    entity("o", "A", 0),
+    entity("x", "B"),
+  ]) as unknown as {
+    name: string;
+    positions: (node: { id: () => string }) => { x: number; y: number };
+  };
+
+  expect(options.name).toBe("preset");
+  expect(options.positions({ id: () => "o" })).toEqual({ x: 0, y: 0 });
+  expect(options.positions({ id: () => "x" })).not.toEqual({ x: 0, y: 0 });
+});
+
+const around = (point: Point) => Math.atan2(point.y, point.x);
+const fromMiddle = (point: Point) => Math.hypot(point.x, point.y);
+
+test("sectors: the origin is in the middle and each type stays in its own wedge", () => {
+  const entities = [
+    entity("o", "A", 0),
+    ...Array.from({ length: 12 }, (_, index) => entity(`a${index}`, "A")),
+    ...Array.from({ length: 12 }, (_, index) => entity(`b${index}`, "B")),
+    ...Array.from({ length: 12 }, (_, index) => entity(`c${index}`, "C")),
+  ];
+
+  const positions = sectorPositions(entities, "normal");
+  const anglesOf = (prefix: string) =>
+    [...positions]
+      .filter(([id]) => id.startsWith(prefix))
+      .map(([, point]) => (around(point) + 2 * Math.PI + Math.PI / 2) % (2 * Math.PI));
+
+  expect(positions.get("o")).toEqual({ x: 0, y: 0 });
+  // The angles are counted from the top, so the wedges are in order and do not overlap.
+  expect(Math.max(...anglesOf("a"))).toBeLessThan(Math.min(...anglesOf("b")));
+  expect(Math.max(...anglesOf("b"))).toBeLessThan(Math.min(...anglesOf("c")));
+});
+
+test("sectors: a big type grows outward on more arcs, not into its neighbours", () => {
+  const entities = [
+    entity("o", "A", 0),
+    ...Array.from({ length: 60 }, (_, index) => entity(`a${String(index).padStart(2, "0")}`, "A")),
+    entity("b0", "B"),
+  ];
+
+  const positions = sectorPositions(entities, "normal");
+  const radii = new Set(
+    [...positions]
+      .filter(([id]) => id.startsWith("a"))
+      .map(([, point]) => Math.round(fromMiddle(point))),
+  );
+
+  expect(radii.size).toBeGreaterThan(1);
+});
+
+test("sectors: no two entities are on the same point, and the same graph is placed the same way", () => {
+  const entities = [
+    entity("o", "A", 0),
+    ...Array.from({ length: 50 }, (_, index) =>
+      entity(`n${index}`, index % 4 === 0 ? "A" : index % 4 === 1 ? "B" : "C"),
+    ),
+  ];
+
+  const first = sectorPositions(entities, "normal");
+  const points = new Set(
+    [...first.values()].map(({ x, y }) => `${Math.round(x)},${Math.round(y)}`),
+  );
+
+  expect(points.size).toBe(51);
+  expect(sectorPositions(entities, "normal")).toEqual(first);
+});
+
+test("sectors: a wider spacing puts the entities farther from the middle", () => {
+  const entities = [entity("o", "A", 0), entity("a1", "A")];
+  const reach = (spacing: "compact" | "wide") =>
+    fromMiddle(sectorPositions(entities, spacing).get("a1") as Point);
+
+  expect(reach("wide")).toBeGreaterThan(reach("compact"));
+});
+
+test("sectors: the nearer entities of a type come first, on the inner arc", () => {
+  const entities = [entity("o", "A", 0), entity("far", "B", 2), entity("near", "B", 1)];
+  const positions = sectorPositions(entities, "normal");
+
+  expect(fromMiddle(positions.get("near") as Point)).toBeLessThanOrEqual(
+    fromMiddle(positions.get("far") as Point) + 1e-9,
+  );
+});
+
+test("sectors: with nothing but the origin, it is in the middle and alone", () => {
+  expect([...sectorPositions([entity("o", "A", 0)], "normal")]).toEqual([["o", { x: 0, y: 0 }]]);
+  expect(sectorPositions([], "normal").size).toBe(0);
 });
