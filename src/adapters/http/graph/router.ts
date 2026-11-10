@@ -6,6 +6,7 @@ import { validateNeighbourhoodRequest } from "./middlewares/validate-neighbourho
 import { validateShortestPathRequest } from "./middlewares/validate-shortest-path-request.ts";
 import { validateSearchRequest } from "./middlewares/validate-search-request.ts";
 import { validateEntityQueryRequest } from "./middlewares/validate-entity-query-request.ts";
+import { validateMostConnectedRequest } from "./middlewares/validate-most-connected-request.ts";
 import { validateQueryOptionsRequest } from "./middlewares/validate-query-options-request.ts";
 import { validateListEntitiesRequest } from "./middlewares/validate-list-entities-request.ts";
 import { createGraphService } from "./service.ts";
@@ -59,6 +60,13 @@ export function createGraphRouter(graphRepository: GraphRepository): Router {
     text({ type: JSON_CONTENT_TYPE }),
     validateEntityQueryRequest,
     controller.queryEntities,
+  );
+
+  router.get(
+    "/most-connected",
+    validateMostConnectedRequest,
+    validateQueryOptionsRequest,
+    controller.getMostConnectedEntities,
   );
 
   router.get("/types", controller.listEntityTypes);

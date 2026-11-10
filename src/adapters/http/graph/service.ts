@@ -1,6 +1,7 @@
 import { createEntity } from "../../../core/domain/entity/index.ts";
 import { normalizeText } from "../../../core/domain/text/index.ts";
 import type {
+  ConnectedEntity,
   EntityDegree,
   EntityFindings,
   EntityNeighbourhood,
@@ -11,6 +12,7 @@ import type {
   EntityPage,
   EntityTypeCount,
   GraphRepository,
+  MostConnectedOptions,
   NeighbourhoodOptions,
   QueryOptions,
   SearchOptions,
@@ -33,6 +35,9 @@ export interface GraphService {
   ): Promise<ShortestPath | null>;
   searchEntities(text: string, options: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
   queryEntities(query: EntityQuery, options: QueryOptions): Promise<EntityQueryAnswer>;
+  getMostConnectedEntities(
+    options: QueryOptions & MostConnectedOptions,
+  ): Promise<ConnectedEntity[]>;
   listEntityTypes(): Promise<EntityTypeCount[]>;
   listEntities(query: EntityListQuery): Promise<EntityPage>;
 }
@@ -69,6 +74,10 @@ export interface GraphService {
 // empty page or a zero count; a query that makes no sense ends in `InvalidEntityQueryError`, a read that runs
 // out of time in `QueryTimeoutError`.
 //
+// `getMostConnectedEntities`: asks for the entities with the most relations, the most connected first, with the
+// limit and the time limit given (each has a default when missing). A limit that makes no sense ends in
+// `InvalidMostConnectedError`, a read that runs out of time in `QueryTimeoutError`.
+//
 // `listEntityTypes` and `listEntities`: the entity types with their counts, and a page of the entities
 // of one type, for browsing what is there.
 export function createGraphService(repository: GraphRepository): GraphService {
@@ -91,6 +100,8 @@ export function createGraphService(repository: GraphRepository): GraphService {
     searchEntities: async (text, options) => repository.searchEntities(text, options),
 
     queryEntities: async (query, options) => repository.queryEntities(query, options),
+
+    getMostConnectedEntities: async (options) => repository.getMostConnectedEntities(options),
 
     listEntityTypes: () => repository.listEntityTypes(),
 

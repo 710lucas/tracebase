@@ -5,6 +5,8 @@ import type { EntityDegree } from "./entity-degree.ts";
 import type { EntityNeighbourhood } from "./entity-neighbourhood.ts";
 import type { NeighbourhoodOptions } from "./neighbourhood-options.ts";
 import type { EntityQuery } from "./entity-query-options.ts";
+import type { ConnectedEntity } from "./most-connected.ts";
+import type { MostConnectedOptions } from "./most-connected-options.ts";
 import type { EntityQueryAnswer } from "./entity-query-result.ts";
 import type { EntitySearchPage } from "./entity-search.ts";
 import type { SearchOptions } from "./search-options.ts";
@@ -93,6 +95,10 @@ export interface EntityFindings {
 // 200) and `includeHistory` are changeable per call. A query that finds nothing is an empty page or a zero
 // count. A query that makes no sense fails with `InvalidEntityQueryError`, and so does an `offset` past the
 // end of the results.
+//
+// `getMostConnectedEntities` feeds the dashboard (see `most-connected.ts`): the entities with the most
+// relations, the most connected first, `limit` of them (default 10, no upper limit). A limit that makes no
+// sense fails with `InvalidMostConnectedError`.
 export interface GraphRepository {
   save(batch: ImportBatch): Promise<void>;
   findEntity(entity: Entity): Promise<EntityFindings | null>;
@@ -112,4 +118,7 @@ export interface GraphRepository {
   ): Promise<ShortestPath | null>;
   searchEntities(text: string, options?: QueryOptions & SearchOptions): Promise<EntitySearchPage>;
   queryEntities(query?: EntityQuery, options?: QueryOptions): Promise<EntityQueryAnswer>;
+  getMostConnectedEntities(
+    options?: QueryOptions & MostConnectedOptions,
+  ): Promise<ConnectedEntity[]>;
 }

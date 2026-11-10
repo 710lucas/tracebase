@@ -5,12 +5,14 @@ import { constants } from "node:http2";
 import { InvalidEntityError } from "../../../core/domain/entity/index.ts";
 import {
   InvalidEntityQueryError,
+  InvalidMostConnectedError,
   InvalidNeighbourhoodOptionsError,
   InvalidSearchError,
   InvalidShortestPathOptionsError,
   QueryTimeoutError,
   toLeanNeighbourhood,
   type EntityListQuery,
+  type MostConnectedOptions,
   type QueryOptions,
 } from "../../../core/ports/graph-repository/index.ts";
 import { ENTITY_QUERY_KEY, type EntityQuery } from "./middlewares/validate-find-entity-request.ts";
@@ -27,6 +29,7 @@ import {
   ENTITY_QUERY_REQUEST_KEY,
   type EntityQueryRequest,
 } from "./middlewares/validate-entity-query-request.ts";
+import { MOST_CONNECTED_OPTIONS_KEY } from "./middlewares/validate-most-connected-request.ts";
 import { QUERY_OPTIONS_KEY } from "./middlewares/validate-query-options-request.ts";
 import { ENTITY_LIST_QUERY_KEY } from "./middlewares/validate-list-entities-request.ts";
 import type { GraphService } from "./service.ts";
@@ -239,6 +242,36 @@ export function createGraphController(service: GraphService) {
         response.status(constants.HTTP_STATUS_OK).json(await service.queryEntities(query, options));
       } catch (error) {
         if (error instanceof InvalidEntityQueryError) {
+          response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
+          return;
+        }
+        if (error instanceof QueryTimeoutError) {
+          response
+            .status(constants.HTTP_STATUS_GATEWAY_TIMEOUT)
+            .json({ error: error.message, timeoutMs: error.timeoutMs });
+          return;
+        }
+
+        throw error;
+      }
+    },
+
+    // The entities with the most relations. `validateMostConnectedRequest` and `validateQueryOptionsRequest`
+    // have already left the limit and the time limit in `response.locals`. Answers 200 with the entities, the
+    // most connected first, 400 when the core refuses the limit and 504 when the read ran out of time. Any
+    // other error is ours (500).
+    getMostConnectedEntities: async (_request: Request, response: Response): Promise<void> => {
+      const options = {
+        ...(response.locals[MOST_CONNECTED_OPTIONS_KEY] as MostConnectedOptions),
+        ...(response.locals[QUERY_OPTIONS_KEY] as QueryOptions),
+      };
+
+      try {
+        const entities = await service.getMostConnectedEntities(options);
+
+        response.status(constants.HTTP_STATUS_OK).json({ entities });
+      } catch (error) {
+        if (error instanceof InvalidMostConnectedError) {
           response.status(constants.HTTP_STATUS_BAD_REQUEST).json({ error: error.message });
           return;
         }

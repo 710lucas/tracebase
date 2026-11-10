@@ -4,11 +4,13 @@ import type { Relation } from "../../core/domain/relation/index.ts";
 import {
   createEntityDegree,
   resolveEntityQuery,
+  resolveMostConnectedOptions,
   resolveNeighbourhoodOptions,
   resolveSearch,
   resolveShortestPathOptions,
   type GraphRepository,
 } from "../../core/ports/graph-repository/index.ts";
+import { mostConnectedInMemory } from "./most-connected-entities.ts";
 import { findNeighbourhood } from "./find-neighbourhood.ts";
 import { findShortestPath } from "./find-shortest-path.ts";
 import { queryInMemory } from "./query-entities.ts";
@@ -124,6 +126,10 @@ export function createInMemoryGraphRepository(): InMemoryGraphRepository {
 
     // Like the others, it takes the time limit of `QueryOptions` and ignores it. The query is checked and
     // defaulted by the port's own rule.
+    // Like the degree, it ignores the time limit: counting over the list in memory ends in milliseconds.
+    getMostConnectedEntities: async (options) =>
+      mostConnectedInMemory(relations, resolveMostConnectedOptions(options)),
+
     queryEntities: async (query) => queryInMemory(relations, attributes, resolveEntityQuery(query)),
   };
 

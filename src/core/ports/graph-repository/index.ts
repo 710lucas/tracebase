@@ -108,3 +108,14 @@ export type {
   GraphTotals,
   RunSummary,
 } from "./graph-overview.ts";
+export { InvalidMostConnectedError } from "./invalid-most-connected-error.ts";
+export {
+  DEFAULT_MOST_CONNECTED_LIMIT,
+  resolveMostConnectedOptions,
+} from "./most-connected-options.ts";
+export type {
+  MostConnectedOptions,
+  ResolvedMostConnectedOptions,
+} from "./most-connected-options.ts";
+export { rankMostConnected } from "./most-connected.ts";
+export type { ConnectedEntity } from "./most-connected.ts";

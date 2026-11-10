@@ -4,6 +4,7 @@ import { buildEntityWrites } from "./build-entity-writes.ts";
 import { buildRelationWrites } from "./build-relation-writes.ts";
 import { decideAttributeWrites } from "./decide-attribute-writes.ts";
 import { getEntityDegree } from "./get-entity-degree.ts";
+import { getMostConnected } from "./get-most-connected.ts";
 import { queryEntities } from "./query-entities.ts";
 import { searchEntities } from "./search-entities.ts";
 import { getShortestPath } from "./get-shortest-path.ts";
@@ -68,5 +69,7 @@ export async function createMemgraphGraphRepository(
     searchEntities: (text, options) => searchEntities(connection, text, options),
 
     queryEntities: (query, options) => queryEntities(connection, query, options),
+
+    getMostConnectedEntities: (options) => getMostConnected(connection, options),
   };
 }
