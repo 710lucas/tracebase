@@ -1,9 +1,14 @@
 import cytoscape from "cytoscape";
 import { useEffect, useRef } from "react";
-import type { GraphElements } from "../graph-elements.ts";
+import { colorOfType, type GraphElements } from "../graph-elements.ts";
+import { groupIdOf, layoutOptions, type GraphLayout, type GraphSpacing } from "../graph-layout.ts";
 
 // Up to this many nodes every one shows its name.
 const SMALL_GRAPH = 30;
+
+// The entities of the drawing, as opposed to the boxes that group them by type.
+const ENTITIES = "node[!isGroup]";
+const GROUPS = "node[?isGroup]";
 
 export interface SelectedNode {
   type: string;
@@ -15,6 +20,9 @@ interface GraphCanvasProps {
   elements: GraphElements;
   // The id of the entity the neighbourhood is about: it is drawn bigger.
   originId: string;
+  // How the nodes are placed (`grouped` puts the entities of a type in a box of their own) and how far apart.
+  layout: GraphLayout;
+  spacing: GraphSpacing;
   // The entity types to show. Empty: all of them. The origin is always shown, so the drawing never loses its centre.
   onlyTypes: ReadonlySet<string>;
   // Called with the node that was clicked, or `null` when the click was on the empty background.
@@ -22,14 +30,26 @@ interface GraphCanvasProps {
 }
 
 // The drawing of the graph: Cytoscape.js in one element. It draws what it is given and tells which node was
-// clicked; it knows nothing about the API. The elements are replaced as a whole when they change, and a force layout
-// (`cose`) places the nodes. The colours of the text and the lines come from the page's own CSS variables, so the
-// drawing follows the light or dark scheme at the time it is made.
-export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCanvasProps) {
+// clicked; it knows nothing about the API. Elements that are new are added to what is drawn (so an expansion keeps
+// the rest in place) and the layout places them; a change of layout or spacing places everything again. The colours of
+// the text and the lines come from the page's own CSS variables, so the drawing follows the light or dark scheme at the
+// time it is made.
+export function GraphCanvas({
+  elements,
+  originId,
+  layout,
+  spacing,
+  onlyTypes,
+  onSelect,
+}: GraphCanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const graph = useRef<cytoscape.Core | null>(null);
   const latestOnSelect = useRef(onSelect);
   latestOnSelect.current = onSelect;
+  // The layout and spacing the nodes were last placed with, and the ones to place them with now.
+  const placedWith = useRef({ layout, spacing });
+  const wanted = useRef({ layout, spacing });
+  wanted.current = { layout, spacing };
 
   useEffect(() => {
     const colors = getComputedStyle(document.documentElement);
@@ -41,7 +61,7 @@ export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCa
       wheelSensitivity: 0.3,
       style: [
         {
-          selector: "node",
+          selector: ENTITIES,
           style: {
             "background-color": "data(color)",
             color: text,
@@ -63,6 +83,26 @@ export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCa
         {
           selector: "node[distance = 0]",
           style: { width: 30, height: 30, "border-width": 3, "border-color": text },
+        },
+        // The box of a type: a faint area of the colour of the type, named at the top.
+        {
+          selector: GROUPS,
+          style: {
+            "background-color": "data(color)",
+            "background-opacity": 0.08,
+            "border-width": 1,
+            "border-style": "dashed",
+            "border-color": "data(color)",
+            label: "data(label)",
+            color: text,
+            "font-size": 12,
+            "font-weight": "bold",
+            "text-valign": "top",
+            "text-halign": "center",
+            "text-margin-y": -6,
+            padding: "24px",
+            shape: "round-rectangle",
+          },
         },
         // A node of a type that was filtered out is not drawn, and the lines that end at it go with it.
         { selector: "node.filtered-out", style: { display: "none" } },
@@ -86,14 +126,14 @@ export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCa
     instance.on("tap", (event) => {
       if (event.target === instance) {
         latestOnSelect.current(null);
-      } else if (event.target.isNode()) {
+      } else if (event.target.isNode() && event.target.data("isGroup") !== true) {
         const { type, value, distance } = event.target.data() as SelectedNode;
         latestOnSelect.current({ type, value, distance });
       }
     });
 
-    instance.on("mouseover", "node", (event) => event.target.addClass("hovered"));
-    instance.on("mouseout", "node", (event) => event.target.removeClass("hovered"));
+    instance.on("mouseover", ENTITIES, (event) => event.target.addClass("hovered"));
+    instance.on("mouseout", ENTITIES, (event) => event.target.removeClass("hovered"));
 
     graph.current = instance;
     return () => {
@@ -106,11 +146,11 @@ export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCa
     const instance = graph.current;
     if (instance === null) return;
 
-    const drawnBefore = instance.nodes().length > 0;
-    const wanted = new Set([...elements.nodes, ...elements.edges].map(({ data }) => data.id));
+    const drawnBefore = instance.nodes(ENTITIES).length > 0;
+    const stillWanted = new Set([...elements.nodes, ...elements.edges].map(({ data }) => data.id));
     instance
       .elements()
-      .filter((element) => !wanted.has(element.id()))
+      .filter((element) => element.data("isGroup") !== true && !stillWanted.has(element.id()))
       .remove();
 
     const newNodes = elements.nodes.filter(({ data }) => instance.getElementById(data.id).empty());
@@ -126,31 +166,90 @@ export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCa
     ]);
     if (newNodes.length === 0 && newEdges.length === 0 && drawnBefore) return;
 
-    instance.nodes().toggleClass("labelled", elements.nodes.length <= SMALL_GRAPH);
-    // The first drawing starts from scratch and fits the whole graph in the view; an expansion keeps what is
-    // there where it is and the view where it is.
-    instance
-      .layout({
-        name: "cose",
-        animate: false,
-        randomize: !drawnBefore,
-        fit: !drawnBefore,
-        padding: 30,
-      })
-      .run();
+    instance.nodes(ENTITIES).toggleClass("labelled", elements.nodes.length <= SMALL_GRAPH);
+    place(instance, wanted.current.layout, wanted.current.spacing, !drawnBefore);
+    placedWith.current = wanted.current;
     instance.$id(originId).select();
   }, [elements, originId]);
 
-  // Hiding does not move anything: the layout was made with every node, so showing them again puts them back.
+  // Another layout or spacing places everything again, from scratch, and fits the view.
   useEffect(() => {
-    graph.current?.nodes().forEach((node) => {
+    const instance = graph.current;
+    if (instance === null) return;
+    if (placedWith.current.layout === layout && placedWith.current.spacing === spacing) return;
+
+    place(instance, layout, spacing, true);
+    placedWith.current = { layout, spacing };
+  }, [layout, spacing]);
+
+  // Hiding does not move anything: the layout was made with every node, so showing them again puts them back. A
+  // box of a type with nothing left in it is hidden too.
+  useEffect(() => {
+    const instance = graph.current;
+    if (instance === null) return;
+
+    instance.nodes(ENTITIES).forEach((node) => {
       const hidden =
         onlyTypes.size > 0 && node.id() !== originId && !onlyTypes.has(node.data("type") as string);
       node.toggleClass("filtered-out", hidden);
     });
-  }, [elements, onlyTypes, originId]);
+    instance.nodes(GROUPS).forEach((group) => {
+      group.toggleClass(
+        "filtered-out",
+        group
+          .children()
+          .filter((child) => !child.hasClass("filtered-out"))
+          .empty(),
+      );
+    });
+  }, [elements, layout, onlyTypes, originId]);
 
   return <div ref={container} className="graph-canvas" data-testid="graph-canvas" />;
+}
+
+// Puts the entities in their boxes (only when the layout is `grouped`; in the others there are no boxes) and then
+// places the nodes with the layout.
+function place(
+  instance: cytoscape.Core,
+  layout: GraphLayout,
+  spacing: GraphSpacing,
+  fresh: boolean,
+): void {
+  syncGroups(instance, layout === "grouped");
+  const entities = instance.nodes(ENTITIES).map((node) => ({
+    id: node.id(),
+    type: node.data("type") as string,
+    distance: node.data("distance") as number,
+  }));
+  instance.layout(layoutOptions(layout, spacing, fresh, entities)).run();
+}
+
+// With `grouped` each entity is the child of the box of its type, made when it is needed; without it the entities
+// have no parent and the boxes are taken away.
+function syncGroups(instance: cytoscape.Core, grouped: boolean): void {
+  if (grouped) {
+    for (const type of new Set(
+      instance.nodes(ENTITIES).map((node) => node.data("type") as string),
+    )) {
+      if (instance.getElementById(groupIdOf(type)).empty()) {
+        instance.add({
+          group: "nodes",
+          data: { id: groupIdOf(type), isGroup: true, label: type, color: colorOfType(type) },
+        });
+      }
+    }
+    // The origin is the centre of the drawing, outside the boxes.
+    instance.nodes(ENTITIES).forEach((node) => {
+      node.move({
+        parent: node.data("distance") === 0 ? null : groupIdOf(node.data("type") as string),
+      });
+    });
+  } else {
+    instance.nodes(ENTITIES).forEach((node) => {
+      node.move({ parent: null });
+    });
+    instance.nodes(GROUPS).remove();
+  }
 }
 
 // Where a new node is first put: close to a node it has a relation with that is already drawn, with a small random

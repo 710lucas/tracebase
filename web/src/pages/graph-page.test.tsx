@@ -11,6 +11,8 @@ vi.mock("../components/graph-canvas.tsx", () => ({
     elements: { nodes: { data: { value: string } }[]; edges: unknown[] };
     originId: string;
     onlyTypes: ReadonlySet<string>;
+    layout: string;
+    spacing: string;
     onSelect: (node: { type: string; value: string; distance: number } | null) => void;
   }) => (
     <div>
@@ -21,6 +23,7 @@ vi.mock("../components/graph-canvas.tsx", () => ({
       </ul>
       <span>{`edges ${props.elements.edges.length}`}</span>
       <span>{`only ${[...props.onlyTypes].sort().join(",")}`}</span>
+      <span>{`layout ${props.layout} ${props.spacing}`}</span>
       <button
         onClick={() => props.onSelect({ type: "DOMAIN_NAME", value: "a.example.com", distance: 1 })}
       >
@@ -183,6 +186,31 @@ test("Show all types undoes the filter", async () => {
 
   expect(screen.getByText("only")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Show all types" })).toBeNull();
+});
+
+test("draws grouped by type with normal spacing at first, and the selectors change it", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood) });
+
+  renderApp(ADDRESS);
+  expect(await screen.findByText("layout grouped normal")).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText("Layout"), { target: { value: "rings" } });
+  fireEvent.change(screen.getByLabelText("Spacing"), { target: { value: "wide" } });
+
+  expect(screen.getByText("layout rings wide")).toBeTruthy();
+});
+
+test("the layout stays when the neighbourhood is asked again", async () => {
+  const more =
+    "/graph/entities/neighbourhood?type=IP_ADDRESS&value=10.0.0.1&hops=4&maxEntities=200";
+  stubApi({ [URL_2_200]: ok(neighbourhood), [more]: ok(neighbourhood) });
+
+  renderApp(ADDRESS);
+  await screen.findByText("layout grouped normal");
+  fireEvent.change(screen.getByLabelText("Layout"), { target: { value: "force" } });
+  fireEvent.change(screen.getByLabelText(/Relations away/), { target: { value: "4" } });
+
+  expect(await screen.findByText("layout force normal")).toBeTruthy();
 });
 
 test("says so when nothing mentions the entity", async () => {

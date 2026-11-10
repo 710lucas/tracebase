@@ -12,6 +12,14 @@ import {
   type GraphElements,
 } from "../graph-elements.ts";
 import { formatNumber } from "../format.ts";
+import {
+  DEFAULT_LAYOUT,
+  DEFAULT_SPACING,
+  LAYOUTS,
+  SPACINGS,
+  type GraphLayout,
+  type GraphSpacing,
+} from "../graph-layout.ts";
 import { useRequest } from "../hooks/use-request.ts";
 
 const NO_ELEMENTS: GraphElements = { nodes: [], edges: [] };
@@ -35,6 +43,9 @@ export function GraphPage() {
   // What the expansions found, on top of the neighbourhood the address asks for. A new address starts from none.
   const [expansions, setExpansions] = useState<GraphElements>(NO_ELEMENTS);
   // The types the legend was clicked to keep; empty means all of them.
+  // How the nodes are placed and how far apart; they stay when another entity is drawn.
+  const [layout, setLayout] = useState<GraphLayout>(DEFAULT_LAYOUT);
+  const [spacing, setSpacing] = useState<GraphSpacing>(DEFAULT_SPACING);
   const [onlyTypes, setOnlyTypes] = useState<ReadonlySet<string>>(new Set());
 
   function toggleType(entityType: string) {
@@ -86,6 +97,29 @@ export function GraphPage() {
           </select>
         </label>
         <label>
+          Layout{" "}
+          <select value={layout} onChange={(event) => setLayout(event.target.value as GraphLayout)}>
+            {LAYOUTS.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Spacing{" "}
+          <select
+            value={spacing}
+            onChange={(event) => setSpacing(event.target.value as GraphSpacing)}
+          >
+            {SPACINGS.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Entities at most{" "}
           <select
             value={maxEntities}
@@ -112,6 +146,8 @@ export function GraphPage() {
               expansions={expansions}
               onExpand={(added) => setExpansions((current) => mergeElements(current, added))}
               maxEntities={maxEntities}
+              layout={layout}
+              spacing={spacing}
               onlyTypes={onlyTypes}
               onToggleType={toggleType}
               onShowAllTypes={() => setOnlyTypes(new Set())}
@@ -131,6 +167,8 @@ function Drawing(props: {
   expansions: GraphElements;
   onExpand: (added: GraphElements) => void;
   maxEntities: number;
+  layout: GraphLayout;
+  spacing: GraphSpacing;
   onlyTypes: ReadonlySet<string>;
   onToggleType: (type: string) => void;
   onShowAllTypes: () => void;
@@ -143,6 +181,8 @@ function Drawing(props: {
     expansions,
     onExpand,
     maxEntities,
+    layout,
+    spacing,
     onlyTypes,
     onToggleType,
     onShowAllTypes,
@@ -209,6 +249,8 @@ function Drawing(props: {
         <GraphCanvas
           elements={elements}
           originId={originId}
+          layout={layout}
+          spacing={spacing}
           onlyTypes={onlyTypes}
           onSelect={onSelect}
         />

@@ -259,7 +259,8 @@ ul.plain li {
 }
 
 .graph-canvas {
-  height: 34rem;
+  height: 75vh;
+  min-height: 34rem;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface);
