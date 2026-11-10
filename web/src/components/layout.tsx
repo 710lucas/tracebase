@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 const SECTIONS = [
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/", label: "Status" },
   { to: "/imports", label: "Imports" },
   { to: "/browse", label: "Browse" },
 ];
 
-// The frame of every screen: the name, the three sections and the page itself.
+// The frame of every screen: the name, the sections and the page itself.
 export function Layout({ children }: { children: ReactNode }) {
   return (
     <>

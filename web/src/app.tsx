@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { Layout } from "./components/layout.tsx";
+import { DashboardPage } from "./pages/dashboard-page.tsx";
 import { EntityListPage } from "./pages/entity-list-page.tsx";
 import { EntityPage } from "./pages/entity-page.tsx";
 import { ImportsPage } from "./pages/imports-page.tsx";
@@ -14,6 +15,7 @@ export function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<StatusPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/imports" element={<ImportsPage />} />
         <Route path="/browse" element={<TypesPage />} />
         <Route path="/browse/:type" element={<EntityListPage />} />

@@ -63,6 +63,14 @@ export interface GraphTotals {
   attributes: number;
 }
 
+// One entity with how many relations it has, as the most-connected route answers.
+export interface ConnectedEntity {
+  entity: EntityRef;
+  total: number;
+  incoming: number;
+  outgoing: number;
+}
+
 export interface StatusReport {
   storage: "memory" | "memgraph";
   memgraphUrl?: string;

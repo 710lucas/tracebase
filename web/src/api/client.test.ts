@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { ApiError, getEntities, getEntity, getRuns } from "./client.ts";
+import { ApiError, getEntities, getEntity, getMostConnected, getRuns } from "./client.ts";
 import { failure, ok, stubApi } from "../test/stub-api.ts";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -47,4 +47,12 @@ test("leaves the search out of the request when it is empty", async () => {
   await getEntities("A", { search: "", limit: 10, offset: 20 });
 
   expect(calls).toEqual(["/graph/types/A/entities?limit=10&offset=20"]);
+});
+
+test("asks for the most connected entities with the limit and gives the list", async () => {
+  const connected = { entity: { type: "A", value: "B" }, total: 3, incoming: 1, outgoing: 2 };
+  const { calls } = stubApi({ "/graph/most-connected?limit=5": ok({ entities: [connected] }) });
+
+  expect(await getMostConnected(5)).toEqual([connected]);
+  expect(calls).toEqual(["/graph/most-connected?limit=5"]);
 });

@@ -1,4 +1,5 @@
 import type {
+  ConnectedEntity,
   EntityFindings,
   EntityListOptions,
   EntityPage,
@@ -63,6 +64,11 @@ export function getEntities(type: string, options: EntityListOptions): Promise<E
   if (options.search !== "") query.set("search", options.search);
 
   return getJson(`/graph/types/${encodeURIComponent(type)}/entities?${query}`);
+}
+
+export async function getMostConnected(limit: number): Promise<ConnectedEntity[]> {
+  return (await getJson<{ entities: ConnectedEntity[] }>(`/graph/most-connected?limit=${limit}`))
+    .entities;
 }
 
 // `null` when nothing in the graph mentions the entity (the API's 404), which is an answer, not a failure.
