@@ -7,6 +7,7 @@ import {
   isOutwardLink,
   mergeElements,
   toGraphElements,
+  visibleNodeIds,
 } from "./graph-elements.ts";
 
 const ip = { type: "IP_ADDRESS", value: "10.0.0.1" };
@@ -133,4 +134,60 @@ test("counts only the links between entities one step apart", () => {
 
   expect(toGraphElements(withPaths).edges).toHaveLength(7);
   expect(countOutwardLinks(toGraphElements(withPaths))).toBe(4);
+});
+
+// o -> x (ASN, 1), o -> y (DOMAIN_NAME, 1); x -> z (DOMAIN_NAME, 2), y -> z, w -> y (EMAIL, 2); v (EMAIL, 1) alone.
+const path = (type: string, value: string) => ({ type, value });
+const o = path("IP_ADDRESS", "o");
+const x = path("ASN", "x");
+const y = path("DOMAIN_NAME", "y");
+const z = path("DOMAIN_NAME", "z");
+const w = path("EMAIL", "w");
+const v = path("EMAIL", "v");
+const withPaths: Neighbourhood = {
+  origin: o,
+  hops: 2,
+  maxEntities: 200,
+  entities: [
+    { ...x, distance: 1 },
+    { ...y, distance: 1 },
+    { ...v, distance: 1 },
+    { ...z, distance: 2 },
+    { ...w, distance: 2 },
+  ],
+  relations: [
+    { source: o, target: x },
+    { source: o, target: y },
+    { source: o, target: v },
+    { source: x, target: z },
+    { source: z, target: y },
+    { source: w, target: y },
+  ],
+  truncated: false,
+};
+const valuesShown = (types: string[]) =>
+  [...visibleNodeIds(toGraphElements(withPaths), entityId(o), new Set(types))]
+    .map((id) => (JSON.parse(id) as string[])[1])
+    .sort();
+
+test("with no type chosen every entity is drawn", () => {
+  expect(valuesShown([])).toEqual(["o", "v", "w", "x", "y", "z"]);
+});
+
+test("choosing a type keeps the origin and the entities between it and the origin, whatever their type", () => {
+  // z is a DOMAIN_NAME at distance 2, linked to x (ASN) and to y (DOMAIN_NAME), both at distance 1.
+  expect(valuesShown(["DOMAIN_NAME"])).toEqual(["o", "x", "y", "z"]);
+});
+
+test("the entities between are those one step nearer, in either direction of the relation, up to the origin", () => {
+  // w (EMAIL, 2) is linked to y; y is linked to the origin; v (EMAIL, 1) is chosen too.
+  expect(valuesShown(["EMAIL"])).toEqual(["o", "v", "w", "y"]);
+});
+
+test("an entity of a chosen type with no relation to a nearer one is drawn alone with the origin", () => {
+  expect(valuesShown(["ASN"])).toEqual(["o", "x"]);
+});
+
+test("a type that nothing has leaves only the origin", () => {
+  expect(valuesShown(["NOPE"])).toEqual(["o"]);
 });

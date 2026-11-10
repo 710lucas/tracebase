@@ -1,6 +1,11 @@
 import cytoscape from "cytoscape";
 import { useEffect, useRef } from "react";
-import { colorOfType, isOutwardLink, type GraphElements } from "../graph-elements.ts";
+import {
+  colorOfType,
+  isOutwardLink,
+  visibleNodeIds,
+  type GraphElements,
+} from "../graph-elements.ts";
 import {
   groupIdOf,
   layoutOptions,
@@ -116,6 +121,8 @@ export function GraphCanvas({
         },
         // A node of a type that was filtered out is not drawn, and the lines that end at it go with it.
         { selector: "node.filtered-out", style: { display: "none" } },
+        // An entity that is only drawn because it lies between a chosen one and the origin.
+        { selector: "node.intermediate", style: { opacity: 0.45 } },
         // A link that is not outward is not drawn while the choice to see only outward links is on.
         { selector: "edge.hidden-link", style: { display: "none" } },
         { selector: "node:selected", style: { "border-width": 3, "border-color": "#2859d9" } },
@@ -200,10 +207,18 @@ export function GraphCanvas({
     const instance = graph.current;
     if (instance === null) return;
 
+    // The chosen types and, so that each one is still connected, the entities between it and the origin (drawn faint).
+    const visible = visibleNodeIds(elements, originId, onlyTypes);
     instance.nodes(ENTITIES).forEach((node) => {
-      const hidden =
-        onlyTypes.size > 0 && node.id() !== originId && !onlyTypes.has(node.data("type") as string);
+      const hidden = !visible.has(node.id());
       node.toggleClass("filtered-out", hidden);
+      node.toggleClass(
+        "intermediate",
+        !hidden &&
+          onlyTypes.size > 0 &&
+          !onlyTypes.has(node.data("type") as string) &&
+          node.id() !== originId,
+      );
     });
     instance.nodes(GROUPS).forEach((group) => {
       group.toggleClass(

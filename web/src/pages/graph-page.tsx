@@ -10,6 +10,7 @@ import {
   entityId,
   mergeElements,
   toGraphElements,
+  visibleNodeIds,
   type GraphElements,
 } from "../graph-elements.ts";
 import { formatNumber } from "../format.ts";
@@ -243,15 +244,13 @@ function Drawing(props: {
   }
   const types = [...countByType.keys()].sort();
   const filtering = onlyTypes.size > 0;
-  // What the drawing shows with the filter: the origin and the entities of the chosen types.
-  const shownNodes = elements.nodes.filter(
-    ({ data }) => !filtering || data.id === originId || onlyTypes.has(data.type),
-  );
+  // What the drawing shows with the filter: the chosen types, the origin and the entities between them and the origin.
+  const shownNodes = visibleNodeIds(elements, originId, onlyTypes);
 
   return (
     <>
       <p className="muted">
-        {filtering && `Showing ${formatNumber(shownNodes.length)} of `}
+        {filtering && `Showing ${formatNumber(shownNodes.size)} of `}
         {formatNumber(elements.nodes.length)} entities and{" "}
         {onlyOutward && `${formatNumber(countOutwardLinks(elements))} of `}
         {formatNumber(elements.edges.length)} links

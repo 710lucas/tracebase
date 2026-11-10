@@ -106,3 +106,47 @@ export function countOutwardLinks(elements: GraphElements): number {
     isOutwardLink(distanceOf.get(data.source) ?? 0, distanceOf.get(data.target) ?? 0),
   ).length;
 }
+
+// The entities to draw when only some types are chosen (an empty choice is every entity): the origin, the entities of
+// the chosen types and, so that each one is still connected to the origin, the entities between: from each drawn entity,
+// those it is linked to that are one step nearer the origin, and so on until the origin. They are in the drawing even
+// if their type was not chosen. The direction of the relations does not matter.
+export function visibleNodeIds(
+  elements: GraphElements,
+  originId: string,
+  onlyTypes: ReadonlySet<string>,
+): Set<string> {
+  if (onlyTypes.size === 0) return new Set(elements.nodes.map(({ data }) => data.id));
+
+  const distanceOf = new Map(elements.nodes.map(({ data }) => [data.id, data.distance]));
+  const nearer = new Map<string, Set<string>>();
+  for (const { data } of elements.edges) {
+    for (const [from, to] of [
+      [data.source, data.target],
+      [data.target, data.source],
+    ] as const) {
+      if ((distanceOf.get(to) ?? 0) === (distanceOf.get(from) ?? 0) - 1) {
+        nearer.set(from, (nearer.get(from) ?? new Set()).add(to));
+      }
+    }
+  }
+
+  const visible = new Set([originId]);
+  const pending: string[] = [];
+  for (const { data } of elements.nodes) {
+    if (onlyTypes.has(data.type)) {
+      visible.add(data.id);
+      pending.push(data.id);
+    }
+  }
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    for (const parent of nearer.get(next) ?? []) {
+      if (!visible.has(parent)) {
+        visible.add(parent);
+        pending.push(parent);
+      }
+    }
+  }
+
+  return visible;
+}
