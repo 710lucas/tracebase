@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ok, stubApi } from "../test/stub-api.ts";
 import { renderApp } from "../test/render-app.tsx";
@@ -151,4 +151,119 @@ test("shows the qualifier under the attribute name", async () => {
 
   expect(await screen.findByText("sfp_cinsscore")).toBeTruthy();
   expect(screen.getByText("sfp_blocklistde")).toBeTruthy();
+});
+
+const twoRuns = {
+  entity: address,
+  relations: [
+    {
+      source: domain,
+      target: address,
+      provenance: { tool: "spiderfoot", run: "scan-1", module: "sfp_dns", confidence: 100 },
+    },
+    {
+      source: address,
+      target: { type: "ASN", value: "AS15133" },
+      provenance: { tool: "spiderfoot", run: "scan-2", module: "sfp_asn", confidence: 40 },
+    },
+  ],
+  attributes: [
+    {
+      entity: address,
+      name: "banner",
+      values: ["nginx"],
+      provenance: { tool: "spiderfoot", run: "scan-1", module: "sfp_web", observedAt: 1000 },
+    },
+    {
+      entity: address,
+      name: "banner",
+      values: ["apache", "php"],
+      provenance: { tool: "spiderfoot", run: "scan-2", module: "sfp_web", observedAt: 2000 },
+    },
+  ],
+};
+
+const ENTITY_URL = "/graph/entities?type=IP_ADDRESS&value=93.184.216.34";
+
+function relationsTable() {
+  return screen.getAllByRole("table")[0] as HTMLElement;
+}
+
+test("filters the relations and attributes by run and says how many are left", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Relations (2)");
+  fireEvent.change(screen.getByLabelText("Run"), { target: { value: "scan-1" } });
+
+  expect(screen.getByText("Relations (1 of 2)")).toBeTruthy();
+  expect(screen.getByText("Attributes (1 of 2)")).toBeTruthy();
+  expect(within(relationsTable()).queryByText("AS15133")).toBeNull();
+  expect(within(relationsTable()).getByText("example.com")).toBeTruthy();
+});
+
+test("filters by the minimum confidence, which only appears when a finding has one", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Relations (2)");
+  fireEvent.change(screen.getByLabelText(/Confidence at least/), { target: { value: "50" } });
+
+  expect(screen.getByText("Relations (1 of 2)")).toBeTruthy();
+  // The attributes have no confidence, so a filter that asks for one hides them all.
+  expect(screen.getByText("Attributes (0 of 2)")).toBeTruthy();
+});
+
+test("Clear filter brings everything back and goes away", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Relations (2)");
+  expect(screen.queryByRole("button", { name: "Clear filter" })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Run"), { target: { value: "scan-2" } });
+  fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+
+  expect(screen.getByText("Relations (2)")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Clear filter" })).toBeNull();
+});
+
+test("a filter part with nothing to choose between is not shown", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Relations (2)");
+
+  // One tool in all the findings: no selector for it. Two runs and three modules: selectors.
+  expect(screen.queryByLabelText("Tool")).toBeNull();
+  expect(screen.getByLabelText("Run")).toBeTruthy();
+  expect(screen.getByLabelText("Module")).toBeTruthy();
+});
+
+test("marks the newest set of an attribute as current and the others as replaced, with how many values", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Attributes (2)");
+
+  const rows = within(screen.getAllByRole("table")[1] as HTMLElement)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.textContent ?? "");
+  expect(rows[0]).toContain("apache");
+  expect(rows[0]).toContain("2 values, found together");
+  expect(rows[0]).toContain("current");
+  expect(rows[1]).toContain("nginx");
+  expect(rows[1]).toContain("replaced");
+});
+
+test("the current set is the newest of all, even when the filter hides it", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+  await screen.findByText("Attributes (2)");
+  fireEvent.change(screen.getByLabelText("Run"), { target: { value: "scan-1" } });
+
+  const row = within(screen.getAllByRole("table")[1] as HTMLElement).getAllByRole("row")[1];
+  expect(row?.textContent).toContain("nginx");
+  expect(row?.textContent).toContain("replaced");
 });

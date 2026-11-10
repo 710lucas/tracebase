@@ -5,7 +5,17 @@ import { describeProvenance, formatDate, seenAt } from "../format.ts";
 // row is one observation: the whole set of values the tool found together. A name and qualifier with
 // several rows has more than one observation: the current one and the sets that were replaced by it. A name
 // with several qualifiers is described by several sources side by side, none of them replacing the others.
-export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
+//
+// The newest observation of each name and qualifier is the current one and the others are marked replaced. When the
+// attributes shown are only some of the entity's (a filter), `all` has every one of them, because the current one is
+// the newest of ALL, even if the filter hides it.
+export function AttributesTable({
+  attributes,
+  all = attributes,
+}: {
+  attributes: Attribute[];
+  all?: Attribute[];
+}) {
   if (attributes.length === 0) {
     return <p className="muted">No attributes.</p>;
   }
@@ -16,6 +26,8 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
       (first.qualifier ?? "").localeCompare(second.qualifier ?? "") ||
       (seenAt(second.provenance) ?? 0) - (seenAt(first.provenance) ?? 0),
   );
+
+  const current = currentOf(all);
 
   return (
     <table>
@@ -29,7 +41,7 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
       </thead>
       <tbody>
         {sorted.map((attribute, index) => (
-          <tr key={index}>
+          <tr key={index} className={current.has(attribute) ? undefined : "muted"}>
             <td>
               {attribute.name}
               {attribute.qualifier !== undefined && (
@@ -40,6 +52,12 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
               {attribute.values.map((value) => (
                 <div key={value}>{value}</div>
               ))}
+              {attribute.values.length > 1 && (
+                <div className="muted">{attribute.values.length} values, found together</div>
+              )}
+              <div className={current.has(attribute) ? "ok" : "muted"}>
+                {current.has(attribute) ? "current" : "replaced"}
+              </div>
             </td>
             <td>{describeProvenance(attribute.provenance)}</td>
             <td>{formatDate(seenAt(attribute.provenance))}</td>
@@ -48,4 +66,22 @@ export function AttributesTable({ attributes }: { attributes: Attribute[] }) {
       </tbody>
     </table>
   );
+}
+
+// The newest observation of each name and qualifier (by when it was seen; the first one listed when they tie).
+function currentOf(attributes: readonly Attribute[]): Set<Attribute> {
+  const newest = new Map<string, Attribute>();
+
+  for (const attribute of attributes) {
+    const key = JSON.stringify([attribute.name, attribute.qualifier ?? null]);
+    const best = newest.get(key);
+    if (
+      best === undefined ||
+      (seenAt(attribute.provenance) ?? 0) > (seenAt(best.provenance) ?? 0)
+    ) {
+      newest.set(key, attribute);
+    }
+  }
+
+  return new Set(newest.values());
 }
