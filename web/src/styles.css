@@ -294,3 +294,17 @@ ul.plain li {
 ul.legend li {
   padding: 0.1rem 0;
 }
+
+.added {
+  color: var(--ok);
+}
+
+.removed {
+  color: var(--danger);
+}
+
+h3 {
+  margin: 1.25rem 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}

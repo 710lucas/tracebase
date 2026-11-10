@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getEntity } from "../api/client.ts";
 import type { EntityFindings } from "../api/types.ts";
 import { AttributesTable } from "../components/attributes-table.tsx";
+import { EntityTimelineView } from "../components/entity-timeline-view.tsx";
 import { ProvenanceFilterBar } from "../components/provenance-filter-bar.tsx";
 import { RelationsTable } from "../components/relations-table.tsx";
 import { RequestView } from "../components/request-view.tsx";
@@ -51,6 +52,9 @@ export function EntityPage() {
                 onChange={setFilter}
               />
               <Filtered findings={findings} filter={filter} />
+
+              <h2>Timeline</h2>
+              <EntityTimelineView findings={findings} />
             </>
           )
         }

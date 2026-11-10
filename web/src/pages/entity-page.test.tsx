@@ -149,8 +149,10 @@ test("shows the qualifier under the attribute name", async () => {
 
   renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
 
-  expect(await screen.findByText("sfp_cinsscore")).toBeTruthy();
-  expect(screen.getByText("sfp_blocklistde")).toBeTruthy();
+  // The attributes table is the first one under the "Attributes" heading; the timeline repeats the qualifiers.
+  const table = (await screen.findByText("Attributes (2)")).nextElementSibling as HTMLElement;
+  expect(within(table).getByText("sfp_cinsscore")).toBeTruthy();
+  expect(within(table).getByText("sfp_blocklistde")).toBeTruthy();
 });
 
 const twoRuns = {
@@ -266,4 +268,27 @@ test("the current set is the newest of all, even when the filter hides it", asyn
   const row = within(screen.getAllByRole("table")[1] as HTMLElement).getAllByRole("row")[1];
   expect(row?.textContent).toContain("nginx");
   expect(row?.textContent).toContain("replaced");
+});
+
+test("shows the timeline: the runs that found something and how an attribute changed", async () => {
+  stubApi({ [ENTITY_URL]: ok(twoRuns) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+
+  await screen.findByText("Timeline");
+  expect(screen.getByText("Seen by")).toBeTruthy();
+  expect(screen.getByText("first reported")).toBeTruthy();
+  // The second set added apache and php and removed nginx.
+  expect(screen.getByText("+ apache")).toBeTruthy();
+  expect(screen.getByText("+ php")).toBeTruthy();
+  expect(screen.getByText("− nginx")).toBeTruthy();
+});
+
+test("the timeline says so when the entity has no attribute", async () => {
+  stubApi({ [ENTITY_URL]: ok({ ...twoRuns, attributes: [] }) });
+
+  renderApp("/entity?type=IP_ADDRESS&value=93.184.216.34");
+
+  await screen.findByText("Timeline");
+  expect(screen.getAllByText("No attributes.").length).toBeGreaterThanOrEqual(1);
 });
