@@ -15,6 +15,8 @@ interface GraphCanvasProps {
   elements: GraphElements;
   // The id of the entity the neighbourhood is about: it is drawn bigger.
   originId: string;
+  // The entity types to show. Empty: all of them. The origin is always shown, so the drawing never loses its centre.
+  onlyTypes: ReadonlySet<string>;
   // Called with the node that was clicked, or `null` when the click was on the empty background.
   onSelect: (node: SelectedNode | null) => void;
 }
@@ -23,7 +25,7 @@ interface GraphCanvasProps {
 // clicked; it knows nothing about the API. The elements are replaced as a whole when they change, and a force layout
 // (`cose`) places the nodes. The colours of the text and the lines come from the page's own CSS variables, so the
 // drawing follows the light or dark scheme at the time it is made.
-export function GraphCanvas({ elements, originId, onSelect }: GraphCanvasProps) {
+export function GraphCanvas({ elements, originId, onlyTypes, onSelect }: GraphCanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const graph = useRef<cytoscape.Core | null>(null);
   const latestOnSelect = useRef(onSelect);
@@ -62,6 +64,8 @@ export function GraphCanvas({ elements, originId, onSelect }: GraphCanvasProps) 
           selector: "node[distance = 0]",
           style: { width: 30, height: 30, "border-width": 3, "border-color": text },
         },
+        // A node of a type that was filtered out is not drawn, and the lines that end at it go with it.
+        { selector: "node.filtered-out", style: { display: "none" } },
         { selector: "node:selected", style: { "border-width": 3, "border-color": "#2859d9" } },
         {
           selector: "edge",
@@ -136,6 +140,15 @@ export function GraphCanvas({ elements, originId, onSelect }: GraphCanvasProps) 
       .run();
     instance.$id(originId).select();
   }, [elements, originId]);
+
+  // Hiding does not move anything: the layout was made with every node, so showing them again puts them back.
+  useEffect(() => {
+    graph.current?.nodes().forEach((node) => {
+      const hidden =
+        onlyTypes.size > 0 && node.id() !== originId && !onlyTypes.has(node.data("type") as string);
+      node.toggleClass("filtered-out", hidden);
+    });
+  }, [elements, onlyTypes, originId]);
 
   return <div ref={container} className="graph-canvas" data-testid="graph-canvas" />;
 }

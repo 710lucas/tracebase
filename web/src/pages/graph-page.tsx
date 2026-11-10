@@ -34,6 +34,16 @@ export function GraphPage() {
   const [selected, setSelected] = useState<SelectedNode | null>(null);
   // What the expansions found, on top of the neighbourhood the address asks for. A new address starts from none.
   const [expansions, setExpansions] = useState<GraphElements>(NO_ELEMENTS);
+  // The types the legend was clicked to keep; empty means all of them.
+  const [onlyTypes, setOnlyTypes] = useState<ReadonlySet<string>>(new Set());
+
+  function toggleType(entityType: string) {
+    setOnlyTypes((current) => {
+      const next = new Set(current);
+      if (!next.delete(entityType)) next.add(entityType);
+      return next;
+    });
+  }
   const state = useRequest(
     () => getNeighbourhood({ type, value }, { hops, maxEntities }),
     [type, value, hops, maxEntities],
@@ -43,6 +53,7 @@ export function GraphPage() {
   useEffect(() => {
     setSelected(null);
     setExpansions(NO_ELEMENTS);
+    setOnlyTypes(new Set());
   }, [type, value]);
 
   function change(name: string, newValue: number) {
@@ -101,6 +112,9 @@ export function GraphPage() {
               expansions={expansions}
               onExpand={(added) => setExpansions((current) => mergeElements(current, added))}
               maxEntities={maxEntities}
+              onlyTypes={onlyTypes}
+              onToggleType={toggleType}
+              onShowAllTypes={() => setOnlyTypes(new Set())}
               selected={selected}
               onSelect={setSelected}
               originId={entityId({ type, value })}
@@ -117,11 +131,25 @@ function Drawing(props: {
   expansions: GraphElements;
   onExpand: (added: GraphElements) => void;
   maxEntities: number;
+  onlyTypes: ReadonlySet<string>;
+  onToggleType: (type: string) => void;
+  onShowAllTypes: () => void;
   selected: SelectedNode | null;
   onSelect: (node: SelectedNode | null) => void;
   originId: string;
 }) {
-  const { neighbourhood, expansions, onExpand, maxEntities, selected, onSelect, originId } = props;
+  const {
+    neighbourhood,
+    expansions,
+    onExpand,
+    maxEntities,
+    onlyTypes,
+    onToggleType,
+    onShowAllTypes,
+    selected,
+    onSelect,
+    originId,
+  } = props;
   const elements = useMemo(
     () => mergeElements(toGraphElements(neighbourhood), expansions),
     [neighbourhood, expansions],
@@ -156,11 +184,21 @@ function Drawing(props: {
       setExpansion({ status: "error", message: (error as Error).message });
     }
   }
-  const types = [...new Set(elements.nodes.map(({ data }) => data.type))].sort();
+  const countByType = new Map<string, number>();
+  for (const { data } of elements.nodes) {
+    countByType.set(data.type, (countByType.get(data.type) ?? 0) + 1);
+  }
+  const types = [...countByType.keys()].sort();
+  const filtering = onlyTypes.size > 0;
+  // What the drawing shows with the filter: the origin and the entities of the chosen types.
+  const shownNodes = elements.nodes.filter(
+    ({ data }) => !filtering || data.id === originId || onlyTypes.has(data.type),
+  );
 
   return (
     <>
       <p className="muted">
+        {filtering && `Showing ${formatNumber(shownNodes.length)} of `}
         {formatNumber(elements.nodes.length)} entities and {formatNumber(elements.edges.length)}{" "}
         links
         {neighbourhood.truncated &&
@@ -168,7 +206,12 @@ function Drawing(props: {
       </p>
 
       <div className="graph-layout">
-        <GraphCanvas elements={elements} originId={originId} onSelect={onSelect} />
+        <GraphCanvas
+          elements={elements}
+          originId={originId}
+          onlyTypes={onlyTypes}
+          onSelect={onSelect}
+        />
 
         <aside className="graph-side">
           <h2>Selected</h2>
@@ -207,14 +250,23 @@ function Drawing(props: {
           )}
 
           <h2>Types</h2>
-          <ul className="plain">
+          <p className="muted">Click a type to show only the types you choose.</p>
+          <ul className="plain legend">
             {types.map((entityType) => (
               <li key={entityType}>
-                <span className="swatch" style={{ background: colorOfType(entityType) }} />{" "}
-                {entityType}
+                <button
+                  className="legend-item"
+                  aria-pressed={onlyTypes.has(entityType)}
+                  onClick={() => onToggleType(entityType)}
+                >
+                  <span className="swatch" style={{ background: colorOfType(entityType) }} />{" "}
+                  {entityType}{" "}
+                  <span className="muted">{formatNumber(countByType.get(entityType) ?? 0)}</span>
+                </button>
               </li>
             ))}
           </ul>
+          {filtering && <button onClick={onShowAllTypes}>Show all types</button>}
         </aside>
       </div>
     </>

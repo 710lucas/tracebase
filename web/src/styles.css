@@ -276,3 +276,21 @@ ul.plain li {
   border-radius: 50%;
   vertical-align: middle;
 }
+
+.legend-item {
+  display: block;
+  width: 100%;
+  border: 1px solid transparent;
+  background: none;
+  text-align: left;
+}
+
+.legend-item[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+ul.legend li {
+  padding: 0.1rem 0;
+}

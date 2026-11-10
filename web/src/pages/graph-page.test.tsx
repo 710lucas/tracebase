@@ -10,6 +10,7 @@ vi.mock("../components/graph-canvas.tsx", () => ({
   GraphCanvas: (props: {
     elements: { nodes: { data: { value: string } }[]; edges: unknown[] };
     originId: string;
+    onlyTypes: ReadonlySet<string>;
     onSelect: (node: { type: string; value: string; distance: number } | null) => void;
   }) => (
     <div>
@@ -19,6 +20,7 @@ vi.mock("../components/graph-canvas.tsx", () => ({
         ))}
       </ul>
       <span>{`edges ${props.elements.edges.length}`}</span>
+      <span>{`only ${[...props.onlyTypes].sort().join(",")}`}</span>
       <button
         onClick={() => props.onSelect({ type: "DOMAIN_NAME", value: "a.example.com", distance: 1 })}
       >
@@ -119,14 +121,68 @@ test("a click on a node shows it, how far it is, and links to its page and its o
   );
 });
 
-test("lists the types that are drawn", async () => {
+test("lists the types that are drawn, each with how many entities it has", async () => {
   stubApi({ [URL_2_200]: ok(neighbourhood) });
 
   renderApp(ADDRESS);
 
-  const legend = (await screen.findByText("Types")).nextElementSibling as HTMLElement;
-  expect(within(legend).getByText("DOMAIN_NAME")).toBeTruthy();
-  expect(within(legend).getByText("IP_ADDRESS")).toBeTruthy();
+  const legend = (await screen.findByText("Types")).nextElementSibling
+    ?.nextElementSibling as HTMLElement;
+  const items = within(legend)
+    .getAllByRole("button")
+    .map((button) => button.textContent?.replace(/\s+/g, " ").trim());
+  expect(items).toEqual(["DOMAIN_NAME 1", "IP_ADDRESS 1"]);
+});
+
+test("clicking a type in the side panel keeps only the types chosen, and clicking it again lets it go", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood) });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  expect(screen.getByText("only")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: /DOMAIN_NAME/ }));
+  expect(screen.getByText("only DOMAIN_NAME")).toBeTruthy();
+  expect(screen.getByText(/Showing 2 of 2 entities/)).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: /IP_ADDRESS/ }));
+  expect(screen.getByText("only DOMAIN_NAME,IP_ADDRESS")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: /DOMAIN_NAME/ }));
+  expect(screen.getByText("only IP_ADDRESS")).toBeTruthy();
+});
+
+test("the filter counts the entities it shows, the origin always among them", async () => {
+  stubApi({
+    [URL_2_200]: ok({
+      ...neighbourhood,
+      entities: [
+        { type: "DOMAIN_NAME", value: "a.example.com", distance: 1 },
+        { type: "DOMAIN_NAME", value: "b.example.com", distance: 1 },
+        { type: "ASN", value: "AS1", distance: 2 },
+      ],
+    }),
+  });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  fireEvent.click(screen.getByRole("button", { name: /ASN/ }));
+
+  // The origin and the one ASN, of the four entities.
+  expect(screen.getByText(/Showing 2 of 4 entities/)).toBeTruthy();
+});
+
+test("Show all types undoes the filter", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood) });
+
+  renderApp(ADDRESS);
+  await screen.findByText("node 10.0.0.1");
+  expect(screen.queryByRole("button", { name: "Show all types" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /DOMAIN_NAME/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Show all types" }));
+
+  expect(screen.getByText("only")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Show all types" })).toBeNull();
 });
 
 test("says so when nothing mentions the entity", async () => {
