@@ -8,7 +8,9 @@ import {
   layoutOptions,
   sectorPositions,
   SPACINGS,
+  minimumApart,
   spacingFactor,
+  spreadApart,
   type Point,
 } from "./graph-layout.ts";
 
@@ -326,4 +328,84 @@ test("the clusters are farther apart than before", () => {
   );
 
   expect(nearest).toBeGreaterThan(130);
+});
+
+const gather = (points: [string, number, number][]) =>
+  new Map(points.map(([id, x, y]) => [id, { x, y }] as [string, Point]));
+
+const closest = (positions: Map<string, Point>) => {
+  const all = [...positions.values()];
+  let least = Number.POSITIVE_INFINITY;
+  for (let first = 0; first < all.length; first += 1) {
+    for (let second = first + 1; second < all.length; second += 1) {
+      const [a, b] = [all[first] as Point, all[second] as Point];
+      least = Math.min(least, Math.hypot(a.x - b.x, a.y - b.y));
+    }
+  }
+  return least;
+};
+
+test("spreading apart leaves no two points closer than the minimum", () => {
+  const knot = gather(
+    Array.from({ length: 40 }, (_, index) => [
+      `n${index}`,
+      (index % 7) * 3,
+      Math.floor(index / 7) * 3,
+    ]),
+  );
+
+  const spread = spreadApart(knot, 60);
+
+  expect(closest(spread)).toBeGreaterThan(55);
+  expect(spread.size).toBe(40);
+});
+
+test("points that are already apart are not moved, and the given points are not changed", () => {
+  const apart = gather([
+    ["a", 0, 0],
+    ["b", 200, 0],
+  ]);
+
+  expect(spreadApart(apart, 60)).toEqual(apart);
+  const knot = gather([
+    ["a", 0, 0],
+    ["b", 1, 0],
+  ]);
+  spreadApart(knot, 60);
+  expect(knot.get("b")).toEqual({ x: 1, y: 0 });
+});
+
+test("a pinned point stays where it is and the others move away from it", () => {
+  const spread = spreadApart(
+    gather([
+      ["origin", 0, 0],
+      ["a", 5, 0],
+      ["b", 0, 5],
+    ]),
+    60,
+    new Set(["origin"]),
+  );
+
+  expect(spread.get("origin")).toEqual({ x: 0, y: 0 });
+  expect(Math.hypot((spread.get("a") as Point).x, (spread.get("a") as Point).y)).toBeGreaterThan(
+    55,
+  );
+});
+
+test("points on the very same place are separated, the same way every time", () => {
+  const same = gather([
+    ["a", 10, 10],
+    ["b", 10, 10],
+    ["c", 10, 10],
+  ]);
+
+  const first = spreadApart(same, 60);
+
+  expect(closest(first)).toBeGreaterThan(55);
+  expect(spreadApart(same, 60)).toEqual(first);
+});
+
+test("the minimum distance grows with the spacing", () => {
+  expect(minimumApart("wide")).toBeGreaterThan(minimumApart("normal"));
+  expect(minimumApart("normal")).toBeGreaterThan(minimumApart("compact"));
 });

@@ -1,6 +1,13 @@
 import { expect, test } from "vitest";
 import type { Neighbourhood } from "./api/types.ts";
-import { colorOfType, entityId, mergeElements, toGraphElements } from "./graph-elements.ts";
+import {
+  colorOfType,
+  countOutwardLinks,
+  entityId,
+  isOutwardLink,
+  mergeElements,
+  toGraphElements,
+} from "./graph-elements.ts";
 
 const ip = { type: "IP_ADDRESS", value: "10.0.0.1" };
 const host = { type: "DOMAIN_NAME", value: "a.example.com" };
@@ -87,4 +94,43 @@ test("merging adds only the nodes and edges that are new and keeps what was ther
   expect(merged.nodes.map(({ data }) => data.distance)).toEqual([0, 1, 2]);
   expect(merged.edges).toHaveLength(3);
   expect(current.nodes).toHaveLength(2);
+});
+
+test("a link is outward when its ends are one step apart, whichever way it points", () => {
+  expect(isOutwardLink(0, 1)).toBe(true);
+  expect(isOutwardLink(2, 1)).toBe(true);
+  expect(isOutwardLink(1, 1)).toBe(false);
+  expect(isOutwardLink(0, 2)).toBe(false);
+  expect(isOutwardLink(3, 3)).toBe(false);
+});
+
+test("counts only the links between entities one step apart", () => {
+  const b = { type: "DOMAIN_NAME", value: "b.example.com" };
+  const c = { type: "DOMAIN_NAME", value: "c.example.com" };
+  const withPaths: Neighbourhood = {
+    origin: ip,
+    hops: 2,
+    maxEntities: 200,
+    entities: [
+      { ...host, distance: 1 },
+      { ...b, distance: 1 },
+      { ...c, distance: 2 },
+    ],
+    relations: [
+      { source: ip, target: host },
+      { source: ip, target: b },
+      // The two neighbours linked to each other, in both directions: not outward.
+      { source: host, target: b },
+      { source: b, target: host },
+      // The farther one reached through a neighbour: outward, from either neighbour.
+      { source: host, target: c },
+      { source: c, target: b },
+      // An entity linked to itself.
+      { source: ip, target: ip },
+    ],
+    truncated: false,
+  };
+
+  expect(toGraphElements(withPaths).edges).toHaveLength(7);
+  expect(countOutwardLinks(toGraphElements(withPaths))).toBe(4);
 });

@@ -15,7 +15,7 @@ export type GraphLayout = (typeof LAYOUTS)[number]["value"];
 export const SPACINGS = [
   { value: "compact", label: "Compact", factor: 0.6 },
   { value: "normal", label: "Normal", factor: 1 },
-  { value: "wide", label: "Wide", factor: 1.8 },
+  { value: "wide", label: "Wide", factor: 3 },
 ] as const;
 
 export type GraphSpacing = (typeof SPACINGS)[number]["value"];
@@ -25,8 +25,8 @@ export const DEFAULT_SPACING: GraphSpacing = "normal";
 
 const PADDING = 40;
 // The force layout at spacing 1: how hard nodes push each other, and how long a relation wants to be.
-const NODE_REPULSION = 40000;
-const IDEAL_EDGE_LENGTH = 90;
+const NODE_REPULSION = 250000;
+const IDEAL_EDGE_LENGTH = 130;
 
 export function spacingFactor(spacing: GraphSpacing): number {
   return SPACINGS.find(({ value }) => value === spacing)?.factor ?? 1;
@@ -224,6 +224,65 @@ function orderByAffinity(
   return ordered.map((type) => [type, byType.get(type) as PlacedEntity[]]);
 }
 
+// The least distance between two entities after the force layout, at spacing 1. A force layout packs the entities that
+// are linked to each other into a knot, whatever its parameters; this is what opens the knot.
+const MIN_APART = 60;
+
+export function minimumApart(spacing: GraphSpacing): number {
+  return MIN_APART * spacingFactor(spacing);
+}
+
+// Pushes apart the points that are closer than `minDistance` (each pair is moved half of the overlap, away from each
+// other), over several rounds, until none is or `rounds` is used up. The points in `pinned` do not move. Two points on the
+// same place are pushed along a direction that depends on their order, so the result is always the same. It does not change
+// the points it was given.
+export function spreadApart(
+  points: ReadonlyMap<string, Point>,
+  minDistance: number,
+  pinned: ReadonlySet<string> = new Set(),
+  rounds = 120,
+): Map<string, Point> {
+  const ids = [...points.keys()];
+  const at = new Map([...points].map(([id, point]) => [id, { ...point }]));
+
+  for (let round = 0; round < rounds; round += 1) {
+    let moved = false;
+
+    for (let first = 0; first < ids.length; first += 1) {
+      for (let second = first + 1; second < ids.length; second += 1) {
+        const a = at.get(ids[first] as string) as Point;
+        const b = at.get(ids[second] as string) as Point;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let distance = Math.hypot(dx, dy);
+        if (distance >= minDistance) continue;
+
+        if (distance === 0) {
+          const angle = (first * 2.399963) % (2 * Math.PI);
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        }
+        const push = (minDistance - distance) / 2;
+        const [ux, uy] = [dx / distance, dy / distance];
+        const firstPinned = pinned.has(ids[first] as string);
+        const secondPinned = pinned.has(ids[second] as string);
+        const shareOfFirst = firstPinned ? 0 : secondPinned ? 2 : 1;
+        const shareOfSecond = secondPinned ? 0 : firstPinned ? 2 : 1;
+        a.x -= ux * push * shareOfFirst;
+        a.y -= uy * push * shareOfFirst;
+        b.x += ux * push * shareOfSecond;
+        b.y += uy * push * shareOfSecond;
+        moved = true;
+      }
+    }
+
+    if (!moved) break;
+  }
+
+  return at;
+}
+
 // What Cytoscape needs to place the nodes. `fresh` is the first drawing, or a change of layout: it starts from scratch
 // and fits the whole graph in the view; without it (an expansion) what is already there stays where it is.
 //
@@ -288,11 +347,13 @@ export function layoutOptions(
     randomize: fresh,
     fit: fresh,
     padding: PADDING,
-    numIter: 1500,
-    nodeRepulsion: () => NODE_REPULSION * factor,
+    numIter: 2500,
+    // The push between nodes grows with the square of the spacing, so a wider spacing really opens the crowd (a force
+    // layout packs the nodes that are linked to each other into a knot in the middle otherwise).
+    nodeRepulsion: () => NODE_REPULSION * factor * factor,
     idealEdgeLength: () => IDEAL_EDGE_LENGTH * factor,
-    nodeOverlap: 20 * factor,
-    componentSpacing: 80 * factor,
-    gravity: 0.25,
+    nodeOverlap: 40 * factor,
+    componentSpacing: 120 * factor,
+    gravity: 0.05,
   } as cytoscape.LayoutOptions;
 }

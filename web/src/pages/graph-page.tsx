@@ -6,6 +6,7 @@ import { GraphCanvas, type SelectedNode } from "../components/graph-canvas.tsx";
 import { RequestView } from "../components/request-view.tsx";
 import {
   colorOfType,
+  countOutwardLinks,
   entityId,
   mergeElements,
   toGraphElements,
@@ -46,6 +47,7 @@ export function GraphPage() {
   // How the nodes are placed and how far apart; they stay when another entity is drawn.
   const [layout, setLayout] = useState<GraphLayout>(DEFAULT_LAYOUT);
   const [spacing, setSpacing] = useState<GraphSpacing>(DEFAULT_SPACING);
+  const [onlyOutward, setOnlyOutward] = useState(false);
   const [onlyTypes, setOnlyTypes] = useState<ReadonlySet<string>>(new Set());
 
   function toggleType(entityType: string) {
@@ -120,6 +122,14 @@ export function GraphPage() {
           </select>
         </label>
         <label>
+          <input
+            type="checkbox"
+            checked={onlyOutward}
+            onChange={(event) => setOnlyOutward(event.target.checked)}
+          />{" "}
+          Only links going outward from the origin
+        </label>
+        <label>
           Entities at most{" "}
           <select
             value={maxEntities}
@@ -148,6 +158,7 @@ export function GraphPage() {
               maxEntities={maxEntities}
               layout={layout}
               spacing={spacing}
+              onlyOutward={onlyOutward}
               onlyTypes={onlyTypes}
               onToggleType={toggleType}
               onShowAllTypes={() => setOnlyTypes(new Set())}
@@ -169,6 +180,7 @@ function Drawing(props: {
   maxEntities: number;
   layout: GraphLayout;
   spacing: GraphSpacing;
+  onlyOutward: boolean;
   onlyTypes: ReadonlySet<string>;
   onToggleType: (type: string) => void;
   onShowAllTypes: () => void;
@@ -183,6 +195,7 @@ function Drawing(props: {
     maxEntities,
     layout,
     spacing,
+    onlyOutward,
     onlyTypes,
     onToggleType,
     onShowAllTypes,
@@ -239,8 +252,9 @@ function Drawing(props: {
     <>
       <p className="muted">
         {filtering && `Showing ${formatNumber(shownNodes.length)} of `}
-        {formatNumber(elements.nodes.length)} entities and {formatNumber(elements.edges.length)}{" "}
-        links
+        {formatNumber(elements.nodes.length)} entities and{" "}
+        {onlyOutward && `${formatNumber(countOutwardLinks(elements))} of `}
+        {formatNumber(elements.edges.length)} links
         {neighbourhood.truncated &&
           " (the neighbourhood is bigger: raise “Entities at most” to see more)"}
       </p>
@@ -251,6 +265,7 @@ function Drawing(props: {
           originId={originId}
           layout={layout}
           spacing={spacing}
+          onlyOutward={onlyOutward}
           onlyTypes={onlyTypes}
           onSelect={onSelect}
         />

@@ -89,3 +89,20 @@ export function mergeElements(current: GraphElements, added: GraphElements): Gra
     edges: [...current.edges, ...added.edges.filter(({ data }) => !edgeIds.has(data.id))],
   };
 }
+
+// A link goes "outward" when it joins an entity to one that is exactly one step farther from the origin (or nearer:
+// the direction of the relation does not matter). The links between entities at the same distance (two neighbours of the
+// origin that are linked to each other) and the entity linked to itself are not: they are what makes a drawing of
+// neighbours a tangle, and the ones that reach farther entities are the paths out of the origin.
+export function isOutwardLink(sourceDistance: number, targetDistance: number): boolean {
+  return Math.abs(sourceDistance - targetDistance) === 1;
+}
+
+// How many of the links are outward ones.
+export function countOutwardLinks(elements: GraphElements): number {
+  const distanceOf = new Map(elements.nodes.map(({ data }) => [data.id, data.distance]));
+
+  return elements.edges.filter(({ data }) =>
+    isOutwardLink(distanceOf.get(data.source) ?? 0, distanceOf.get(data.target) ?? 0),
+  ).length;
+}

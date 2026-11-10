@@ -13,6 +13,7 @@ vi.mock("../components/graph-canvas.tsx", () => ({
     onlyTypes: ReadonlySet<string>;
     layout: string;
     spacing: string;
+    onlyOutward: boolean;
     onSelect: (node: { type: string; value: string; distance: number } | null) => void;
   }) => (
     <div>
@@ -24,6 +25,7 @@ vi.mock("../components/graph-canvas.tsx", () => ({
       <span>{`edges ${props.elements.edges.length}`}</span>
       <span>{`only ${[...props.onlyTypes].sort().join(",")}`}</span>
       <span>{`layout ${props.layout} ${props.spacing}`}</span>
+      <span>{`outward ${props.onlyOutward}`}</span>
       <button
         onClick={() => props.onSelect({ type: "DOMAIN_NAME", value: "a.example.com", distance: 1 })}
       >
@@ -211,6 +213,44 @@ test("the layout stays when the neighbourhood is asked again", async () => {
   fireEvent.change(screen.getByLabelText(/Relations away/), { target: { value: "4" } });
 
   expect(await screen.findByText("layout force normal")).toBeTruthy();
+});
+
+test("the toggle for outward links is off at first and turns it on and off", async () => {
+  stubApi({ [URL_2_200]: ok(neighbourhood) });
+
+  renderApp(ADDRESS);
+  expect(await screen.findByText("outward false")).toBeTruthy();
+
+  const toggle = screen.getByLabelText(/Only links going outward/);
+  fireEvent.click(toggle);
+  expect(screen.getByText("outward true")).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(screen.getByText("outward false")).toBeTruthy();
+});
+
+test("with the toggle on, the text says how many of the links are outward ones", async () => {
+  const b = { type: "DOMAIN_NAME", value: "b.example.com" };
+  stubApi({
+    [URL_2_200]: ok({
+      ...neighbourhood,
+      entities: [
+        { type: "DOMAIN_NAME", value: "a.example.com", distance: 1 },
+        { ...b, distance: 1 },
+      ],
+      relations: [
+        { source: { type: "DOMAIN_NAME", value: "a.example.com" }, target: neighbourhood.origin },
+        { source: b, target: neighbourhood.origin },
+        // Two neighbours linked to each other: not outward.
+        { source: { type: "DOMAIN_NAME", value: "a.example.com" }, target: b },
+      ],
+    }),
+  });
+
+  renderApp(ADDRESS);
+  expect(await screen.findByText(/3 entities and 3 links/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText(/Only links going outward/));
+
+  expect(screen.getByText(/3 entities and 2 of 3 links/)).toBeTruthy();
 });
 
 test("says so when nothing mentions the entity", async () => {

@@ -1,7 +1,14 @@
 import cytoscape from "cytoscape";
 import { useEffect, useRef } from "react";
-import { colorOfType, type GraphElements } from "../graph-elements.ts";
-import { groupIdOf, layoutOptions, type GraphLayout, type GraphSpacing } from "../graph-layout.ts";
+import { colorOfType, isOutwardLink, type GraphElements } from "../graph-elements.ts";
+import {
+  groupIdOf,
+  layoutOptions,
+  minimumApart,
+  spreadApart,
+  type GraphLayout,
+  type GraphSpacing,
+} from "../graph-layout.ts";
 
 // Up to this many nodes every one shows its name.
 const SMALL_GRAPH = 30;
@@ -23,6 +30,8 @@ interface GraphCanvasProps {
   // How the nodes are placed (`grouped` puts the entities of a type in a box of their own) and how far apart.
   layout: GraphLayout;
   spacing: GraphSpacing;
+  // Draw only the links that go outward from the origin (see `isOutwardLink`).
+  onlyOutward: boolean;
   // The entity types to show. Empty: all of them. The origin is always shown, so the drawing never loses its centre.
   onlyTypes: ReadonlySet<string>;
   // Called with the node that was clicked, or `null` when the click was on the empty background.
@@ -39,6 +48,7 @@ export function GraphCanvas({
   originId,
   layout,
   spacing,
+  onlyOutward,
   onlyTypes,
   onSelect,
 }: GraphCanvasProps) {
@@ -106,6 +116,8 @@ export function GraphCanvas({
         },
         // A node of a type that was filtered out is not drawn, and the lines that end at it go with it.
         { selector: "node.filtered-out", style: { display: "none" } },
+        // A link that is not outward is not drawn while the choice to see only outward links is on.
+        { selector: "edge.hidden-link", style: { display: "none" } },
         { selector: "node:selected", style: { "border-width": 3, "border-color": "#2859d9" } },
         {
           selector: "edge",
@@ -204,6 +216,20 @@ export function GraphCanvas({
     });
   }, [elements, layout, onlyTypes, originId]);
 
+  // The links between entities at the same distance are hidden, not removed: the layout was made with them, and
+  // showing them again needs no new layout.
+  useEffect(() => {
+    graph.current?.edges().forEach((edge) => {
+      const hidden =
+        onlyOutward &&
+        !isOutwardLink(
+          edge.source().data("distance") as number,
+          edge.target().data("distance") as number,
+        );
+      edge.toggleClass("hidden-link", hidden);
+    });
+  }, [elements, onlyOutward]);
+
   return <div ref={container} className="graph-canvas" data-testid="graph-canvas" />;
 }
 
@@ -226,6 +252,8 @@ function place(
     target: edge.data("target") as string,
   }));
   instance.layout(layoutOptions(layout, spacing, fresh, entities, links)).run();
+  // The force layout leaves the entities that are linked to each other in a knot; this opens it.
+  if (layout === "force") openKnots(instance, spacing, fresh);
 }
 
 // With `grouped` each entity is the child of the box of its type, made when it is needed; without it the entities
@@ -274,4 +302,21 @@ function startingPlace(
   }
 
   return { x: 0, y: 0 };
+}
+
+// Moves apart the entities that the force layout left too close to each other, keeping the origin where it is, and
+// fits the view again when it is a fresh drawing.
+function openKnots(instance: cytoscape.Core, spacing: GraphSpacing, fresh: boolean): void {
+  const nodes = instance.nodes(ENTITIES);
+  const points = new Map(nodes.map((node) => [node.id(), node.position()]));
+  const origins = new Set(
+    nodes.filter((node) => node.data("distance") === 0).map((node) => node.id()),
+  );
+
+  const spread = spreadApart(points, minimumApart(spacing), origins);
+  nodes.forEach((node) => {
+    const point = spread.get(node.id());
+    if (point !== undefined) node.position(point);
+  });
+  if (fresh) instance.fit(undefined, 40);
 }
